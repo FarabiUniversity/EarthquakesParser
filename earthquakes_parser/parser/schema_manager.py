@@ -1,5 +1,5 @@
 """Schema management in database."""
-
+import json
 from typing import Optional
 
 from earthquakes_parser.storage.supabase.database import SupabaseDB
@@ -41,7 +41,7 @@ class SchemaManager:
             return PageSchema(
                 id=str(row["id"]),
                 domain=row["domain"],
-                main_text_selectors=row["main_text_selectors"],
+                main_text_selectors=json.loads(row["main_text_selectors"]),
                 date_selector=row.get("date_selector"),
                 is_valid=row["is_valid"],
                 created_at=row.get("created_at"),

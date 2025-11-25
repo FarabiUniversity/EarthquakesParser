@@ -33,12 +33,9 @@ class ParserManager:
         """
         self.db = db
         self.file_storage = file_storage
-        self.searcher = DDGSearcher()
-        self.search_manager = SearchManager(self.db, self.searcher)
         self.schema_manager = SchemaManager(db)
         self.schema_extractor = SchemaExtractor(openai_base_url, openai_api_key)
         self.data_extractor = DataExtractor()
-
         self.parsed_content_table = "parsed_content"
 
     def _get_domain(self, url: str) -> str:
@@ -58,7 +55,7 @@ class ParserManager:
         search_result_id: str,
         main_text: list,
         date: Optional[str],
-        page_schema_id: str,
+        page_schema_id: Optional[str],
     ) -> Optional[str]:
         """Save parsed content to database.
 
@@ -88,7 +85,48 @@ class ParserManager:
         except Exception as e:
             print(f"❌ Error saving parsed content: {e}")
             return None
-#парсит одну запись
+
+    def update_parsed_content(
+            self,
+            parsed_content_id: str,
+            main_text: Optional[list] = None,
+            date: Optional[str] = None,
+            page_schema_id: Optional[str] = None,
+    ) -> bool:
+        """Update parsed content in database.
+
+        Args:
+            parsed_content_id: ID of parsed content to update.
+            main_text: Updated main text (optional).
+            date: Updated date (optional).
+            page_schema_id: Updated schema ID (optional).
+
+        Returns:
+            True if update succeeded, False otherwise.
+        """
+        try:
+            self.db.update(
+                self.parsed_content_table,
+                record_id=parsed_content_id,  # UUID строки
+                data={"main_text": main_text, "date": date, "page_schema_id": page_schema_id},
+            )
+
+            return True
+        except Exception as e:
+            print(f"❌ Error updating parsed content: {e}")
+            return False
+
+    def get_search_results(self, limit: Optional[int] = None):
+        """Get search results not yet present in parsed_content."""
+        search_results = self.db.select("search_results")
+        parsed_results = self.db.select("parsed_content", filters={"status": None})
+
+        parsed_ids = set(parsed_results["search_result_id"].tolist()) if not parsed_results.empty else set()
+
+        filtered = search_results[~search_results["id"].isin(parsed_ids)]
+
+        return list(filtered.head(limit).to_dict("records")) if limit else list(filtered.to_dict("records"))
+
     def parse_record(
         self,
         record: dict,
@@ -108,6 +146,13 @@ class ParserManager:
         title = record["title"]
         html_storage_path = record.get("html_storage_path")
 
+        parsed_content_id = self._save_parsed_content(
+            search_result_id=search_result_id,
+            main_text=[],
+            date=None,
+            page_schema_id=None,
+        )
+
         domain = self._get_domain(url)
 
         print(f"\n{'='*100}")
@@ -119,13 +164,13 @@ class ParserManager:
         # Step 1: Download HTML from storage
         if not html_storage_path:
             print(f"❌ No HTML storage path for this record")
-            self.search_manager.mark_as(search_result_id, "failed")
+            self.mark_as(parsed_content_id, "failed")
             return False
 
         html = self.file_storage.download(html_storage_path)
         if not html:
             print(f"❌ Failed to download HTML from storage")
-            self.search_manager.mark_as(search_result_id, "failed")
+            self.mark_as(parsed_content_id, "failed")
             return False
 
         print(f"✅ HTML downloaded ({len(html)} characters)")
@@ -139,14 +184,14 @@ class ParserManager:
 
             if not schema:
                 print(f"❌ Failed to extract schema for {domain}")
-                self.search_manager.mark_as(search_result_id, "failed")
+                self.mark_as(parsed_content_id, "failed")
                 return False
 
             # Save schema
             schema_id = self.schema_manager.save(schema)
             if not schema_id:
                 print(f"❌ Failed to save schema for {domain}")
-                self.search_manager.mark_as(search_result_id, "failed")
+                self.mark_as(parsed_content_id, "failed")
                 return False
 
             schema.id = schema_id
@@ -157,7 +202,7 @@ class ParserManager:
         # Check if page is valid
         if not schema.is_valid:
             print(f"⚠️ Page is not about earthquakes, skipping...")
-            self.search_manager.mark_as(search_result_id, "failed")
+            self.mark_as(parsed_content_id, "failed")
             return False
 
         # Step 3: Extract data
@@ -172,14 +217,14 @@ class ParserManager:
             schema = self.schema_extractor.extract_schema(html, title, domain)
             if not schema:
                 print(f"❌ Failed to re-extract schema")
-                self.search_manager.mark_as(search_result_id, "failed")
+                self.mark_as(parsed_content_id, "failed")
                 return False
 
             # Save updated schema
             schema_id = self.schema_manager.save(schema)
             if not schema_id:
                 print(f"❌ Failed to save re-extracted schema")
-                self.search_manager.mark_as(search_result_id, "failed")
+                self.mark_as(parsed_content_id, "failed")
                 return False
 
             schema.id = schema_id
@@ -189,15 +234,15 @@ class ParserManager:
 
             if not result.main_text:
                 print(f"❌ Re-extraction also failed, marking as failed...")
-                self.search_manager.mark_as(search_result_id, "failed")
+                self.mark_as(parsed_content_id, "failed")
                 return False
 
         # Step 5: Save parsed content
         print(f"📌 Extracted text: {len(result.main_text)} paragraphs")
         print(f"📅 Date: {result.date or 'Not found (OK)'}")
 
-        content_id = self._save_parsed_content(
-            search_result_id=search_result_id,
+        content_id = self.update_parsed_content(
+            parsed_content_id=parsed_content_id,
             main_text=result.main_text,
             date=result.date,
             page_schema_id=schema.id,
@@ -205,15 +250,14 @@ class ParserManager:
 
         if content_id:
             print(f"✅ Content saved with ID: {content_id}")
-            # Mark as parsed
-            self.search_manager.mark_as(search_result_id, "parsed")
+            self.mark_as(parsed_content_id, "parsed")
             return True
         else:
             print(f"❌ Failed to save content")
-            self.search_manager.mark_as(search_result_id, "failed")
+            self.mark_as(parsed_content_id, "failed")
             return False
-#парсит все downloaded записи
-    def parse_downloaded(self, limit: Optional[int] = None) -> dict:
+
+    def parse_downloaded(self, limit: Optional[int] = 100) -> dict:
         """Parse all downloaded URLs from search_results table.
 
         Args:
@@ -225,7 +269,7 @@ class ParserManager:
         print(f"📥 Loading downloaded search results from database...")
 
         # Get records with status='downloaded'
-        records = self.search_manager.get_urls(status="downloaded", limit=limit or 100)
+        records = self.get_search_results(limit=limit)
 
         if not records:
             print("⚠️ No downloaded search results found in database")
@@ -254,7 +298,7 @@ class ParserManager:
 
                 # Mark as failed in DB
                 try:
-                    self.search_manager.mark_as(str(record["id"]), "failed")
+                    self.mark_as(str(record["id"]), "failed")
                 except:
                     pass
 
@@ -267,10 +311,19 @@ class ParserManager:
 
         return stats
 
-    def get_statistics(self) -> dict:
-        """Get parsing statistics from database.
+    def mark_as(self, parsed_content_id: str, status: str) -> bool:
+        """Mark a search result as downloaded.
+
+        Args:
+            parsed_content_id: ID of the parsed result.
+            status: Search status (e.g. 'parsed').
 
         Returns:
-            Dictionary with statistics for each status.
+            True if successful, False otherwise.
         """
-        return self.search_manager.get_statistics()
+        updated = self.db.update(
+            "parsed_content",
+            parsed_content_id,
+            {"status": status},
+        )
+        return updated is not None
