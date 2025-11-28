@@ -1,0 +1,7 @@
+version: '3.8'
+
+services:
+  api:
+    environment:
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
