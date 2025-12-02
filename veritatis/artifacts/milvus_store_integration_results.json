@@ -1,0 +1,8 @@
+{
+  "test": "insert_exists_get",
+  "collection": "it_single_1e38f6d6b4754cb58e86bfdd",
+  "id": "0f2d2bc670fd405c88372233",
+  "content": "Hello",
+  "embedding_dim": 384,
+  "timestamp": "2025-12-03T01:48:08.003641+05:00"
+}

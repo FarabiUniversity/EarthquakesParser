@@ -1,6 +1,6 @@
 # Veritatis: Earthquake News RAG
 
-This repo provides a FastAPI service and Milvus-backed vector store to ingest, search, and validate earthquake-related content via a tiered pipeline.
+This repo provides a FastAPI service and Milvus-backed vector store to ingest, and validate earthquake-related content via a tiered pipeline.
 
 ## Quick Start
 
@@ -21,7 +21,6 @@ The code prefers real env vars; `.env` is only used when `ENV` is missing or `EN
 - Start Milvus + etcd + API:
 
 ```zsh
-cd /Users/yelnur/Documents/alfarabi/EarthquakesParser/veritatis
 docker compose up -d --build
 ```
 
@@ -31,7 +30,6 @@ docker compose up -d --build
 
 - `GET /health` — health check
 - `POST /ingest` — body `{ content: str, source_url?: str }` → dedup, embed, insert into Tier 1
-- `POST /search` — body `{ query: str, top_k?: int }` → similarity search over Tier 1
 
 Run API locally:
 
@@ -61,27 +59,29 @@ poetry run python scripts/init_collections.py
 
 ### Testing
 
-- Unit tests (including vector store with fakes):
+- Embeddings unit test:
 
 ```zsh
-export MILVUS_SKIP_CONNECT=1
-poetry run pytest -q tests/test_embeddings.py tests/test_vector_store_unit.py
+poetry run pytest -q tests/test_embeddings.py
+```
+
+- Vector store integration tests (real Milvus required):
+
+```zsh
+# Start Milvus services first
+docker compose up -d etcd milvus
+
+# Run integration tests against real Milvus on localhost:19530
+poetry run pytest -q tests/test_vector_store_unit.py
 ```
 
 - Optional artifact for embeddings (JUnit XML):
 
 ```zsh
-export MILVUS_SKIP_CONNECT=1
 poetry run pytest -q tests/test_embeddings.py --junitxml=artifacts/embeddings_junit.xml
 ```
 
-- Offline vector store artifact:
-
-```zsh
-export MILVUS_SKIP_CONNECT=1
-poetry run python scripts/test_milvus_store_offline.py
-cat artifacts/milvus_store_offline_results.json
-```
+ 
 
 ### Milvus Connectivity
 

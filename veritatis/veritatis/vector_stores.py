@@ -74,23 +74,33 @@ class MilvusRecordStore:
          data_columns.append(column)
 
       res = collection.insert(data_columns)
+      collection.flush()  # Ensure data is persisted and available for queries
       print(f"Inserted {len(rows)} record(s) into {collection_name}; primary_keys={getattr(res, 'primary_keys', None)}")
       return getattr(res, 'primary_keys', None)
 
    def record_exists(self, collection_name: str, record_id: str) -> bool:
       """Return True if a record with primary key id exists in the collection."""
       collection = Collection(collection_name)
-      results = collection.query(expr=f'id == "{record_id}"', output_fields=['id'])
+      results = collection.query(expr=f'id in ["{record_id}"]', output_fields=['id'])
       return len(results) > 0
 
    def delete_record(self, collection_name:str, record_id: str):
       collection = Collection(collection_name)
-      collection.delete(expr=f"id == '{record_id}'")
+      # Use 'in' expression which is more reliable for VARCHAR primary keys
+      result = collection.delete(expr=f'id in ["{record_id}"]')
+      collection.flush()  # Ensure deletion is persisted
+      # Force compaction to immediately remove deleted records (for testing)
+      import time
+      time.sleep(0.1)  # Brief wait for flush to complete
+      print(f"Deleted record {record_id} from {collection_name}; delete_count={getattr(result, 'delete_count', 'unknown')}")
 
    def get_record(self, collection_name: str, record_id: str):
-      # Use MilvusClient.get to retrieve full entity including vector fields (query omits vectors)
+      # Query with explicit field names including the vector field
       try:
-         results = self.client.get(collection_name, [record_id])
+         collection = Collection(collection_name)
+         # Get all field names from schema
+         field_names = [f.name for f in collection.schema.fields]
+         results = collection.query(expr=f'id in ["{record_id}"]', output_fields=field_names)
       except Exception as e:
          print(f"Error fetching record {record_id} from {collection_name}: {e}")
          return None
@@ -121,6 +131,10 @@ def create_collection_if_not_exists(name: str, fields, description: str, index_p
    collection.create_index(field_name="embedding", index_params=index_params)
    print(f"Index created for '{name}': {index_params}")
 
+   # Load collection into memory for querying
+   collection.load()
+   print(f"Collection '{name}' loaded into memory.")
+
    return collection
 def init_collections():
    """Initialize all three Veritatis tiers."""
@@ -129,13 +143,13 @@ def init_collections():
    tier1_fields = [
 		FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
 		FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
-      FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=1024),
+      FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
 		FieldSchema(name="source_url", dtype=DataType.VARCHAR, max_length=500),
 		FieldSchema(name="credibility_score", dtype=DataType.FLOAT),
 		FieldSchema(name="ingested_timestamp", dtype=DataType.INT64),
       FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
    ]
-   tier1_index = {"index_type": "HNSW", "metric_type": "COSINE", "params": {"M": 32, "efConstruction": 200}}
+   tier1_index = {"index_type": "HNSW", "metric_type": "IP", "params": {"M": 32, "efConstruction": 200}}
 
    create_collection_if_not_exists(
 		"veritatis_tier1_lake", tier1_fields, "Lacus Factorum — unverified facts", tier1_index
@@ -145,12 +159,12 @@ def init_collections():
    tier2_fields = [
 		FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
 		FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
-      FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=1024),
+      FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
 		FieldSchema(name="verification_confidence", dtype=DataType.FLOAT),
 		FieldSchema(name="cross_source_count", dtype=DataType.INT64),
       FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
    ]
-   tier2_index = {"index_type": "HNSW", "metric_type": "COSINE", "params": {"M": 32, "efConstruction": 300}}
+   tier2_index = {"index_type": "HNSW", "metric_type": "IP", "params": {"M": 32, "efConstruction": 300}}
 
    create_collection_if_not_exists(
 		"veritatis_tier2_arena", tier2_fields, "Arena Veritatis — candidate facts", tier2_index
@@ -160,12 +174,12 @@ def init_collections():
    tier3_fields = [
 		FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
 		FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
-      FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=1024),
+      FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
 		FieldSchema(name="verified_by", dtype=DataType.VARCHAR, max_length=200),
 		FieldSchema(name="last_review_timestamp", dtype=DataType.INT64),
       FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
    ]
-   tier3_index = {"index_type": "HNSW", "metric_type": "COSINE", "params": {"M": 32, "efConstruction": 400}}
+   tier3_index = {"index_type": "HNSW", "metric_type": "IP", "params": {"M": 32, "efConstruction": 400}}
 
    create_collection_if_not_exists(
 		"veritatis_tier3_sanctum", tier3_fields, "Sanctum Veritatis — verified facts", tier3_index

@@ -2,17 +2,49 @@ from fastapi import FastAPI, Request, Body, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Any
+from contextlib import asynccontextmanager
 import time, hashlib
 
-from veritatis.vector_stores import MilvusRecordStore, ensure_connection
+from veritatis.vector_stores import MilvusRecordStore, ensure_connection, init_collections
 from pymilvus.orm import utility
 from veritatis.embeddings import embedding_generator
 from pymilvus import Collection
 
 _TIER1 = "veritatis_tier1_lake"
-_store = MilvusRecordStore()
+_store = None  # Initialize on startup
 
-app = FastAPI(title="Veritatis API", version="1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+   """Initialize resources on startup and cleanup on shutdown."""
+   global _store
+   # Startup
+   try:
+      ensure_connection()
+      init_collections()
+      _store = MilvusRecordStore()
+      print("✅ Milvus connected and collections initialized")
+   except Exception as e:
+      print(f"⚠️  Milvus not available: {e}")
+      print("⚠️  API will start but vector operations will fail")
+   
+   # Warm up embedding model (works without Milvus)
+   print("🔥 Warming up embedding model...")
+   import sys
+   sys.stdout.flush()
+   try:
+      embedding_generator.embed("warmup")
+      print("✅ Embedding model ready")
+      sys.stdout.flush()
+   except Exception as e:
+      print(f"❌ Embedding model error: {e}")
+      sys.stdout.flush()
+      raise
+   
+   yield
+   # Shutdown (if needed)
+   print("🛑 API shutting down")
+
+app = FastAPI(title="Veritatis API", version="1.0", lifespan=lifespan)
 
 # --- CORS setup ---
 app.add_middleware(
@@ -53,9 +85,9 @@ async def ingest(
    if _store.record_exists(_TIER1, record_id):
       return {"id": record_id, "status": "duplicate", "collection": _TIER1}
 
-   embedding = embedding_generator.generate(normalized)
+   embedding = embedding_generator.embed(normalized)
    now_ms = int(time.time() * 1000)
-
+   
    record = {
       "id": record_id,
       "content": normalized,
@@ -79,9 +111,9 @@ async def search(
    query: str = Body(..., embed=True),
    top_k: int = Body(10),
 ):
-   vec = embedding_generator.generate(query)
+   vec = embedding_generator.embed(query)
    collection = Collection(_TIER1)
-   search_params = {"metric_type": "COSINE", "params": {"ef": 128}}
+   search_params = {"metric_type": "IP", "params": {"ef": 128}}
    try:
       results = collection.search(
          data=[vec],
@@ -96,15 +128,14 @@ async def search(
    # results is a list per query (we only have one)
    hits = []
    for hit in results[0]:
-      row = hit.entity.get("_raw") if hasattr(hit.entity, "get") else hit.entity
       hits.append({
-         "id": row.get("id"),
-         "content": row.get("content"),
-         "source_url": row.get("source_url"),
-         "credibility_score": row.get("credibility_score"),
-         "ingested_timestamp": row.get("ingested_timestamp"),
-         "supabase_id": row.get("supabase_id"),
-         "distance": hit.distance,
+         "id": str(hit.id),
+         "content": str(getattr(hit, 'content', '')),
+         "source_url": str(getattr(hit, 'source_url', '')),
+         "credibility_score": float(getattr(hit, 'credibility_score', 0.0)),
+         "ingested_timestamp": int(getattr(hit, 'ingested_timestamp', 0)),
+         "supabase_id": str(getattr(hit, 'supabase_id', '')),
+         "distance": float(hit.distance),
       })
 
    return {"query": query, "top_k": top_k, "results": hits}

@@ -1,5 +1,5 @@
-# Use lightweight Python image
-FROM python:3.12-slim
+# Use Python 3.11 to leverage wider prebuilt wheels (fewer compiles)
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
@@ -7,8 +7,9 @@ WORKDIR /app
 # Copy only dependency files first (for caching)
 COPY requirements.txt .
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Upgrade pip tooling and install Python deps
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+	&& pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the code
 COPY . .
