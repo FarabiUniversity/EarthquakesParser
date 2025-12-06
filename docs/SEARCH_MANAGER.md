@@ -154,7 +154,7 @@ search_manager.search_with_keywords_file(
 
 ## Status Workflow
 ```
-pending → downloaded → parsed → analyzed
+pending → downloaded
            ↓
          failed
 ```

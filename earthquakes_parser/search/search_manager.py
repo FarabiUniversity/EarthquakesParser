@@ -156,11 +156,11 @@ class SearchManager:
         """
         stats = {"downloaded": 0, "failed": 0}
         urls = self.get_urls(status="pending", limit=limit)
-        downloader = HTMLDownloader()
+        downloader = HTMLDownloader(fetch_with=fetch_with)
 
         for item in urls:
             url = item["link"]
-            html = downloader.fetch_html(url, fetch_with=fetch_with)
+            html = downloader.fetch_html(url)
 
             if not html.strip():
                 self.mark_as(item["id"], "failed")
@@ -196,23 +196,12 @@ class SearchManager:
                 'failed': int
             }
         """
-        stats = {
-            "total": 0,
-            "pending": 0,
-            "downloaded": 0,
-            "parsed": 0,
-            "analyzed": 0,
-            "failed": 0,
-        }
+        df = self.db.select("search_results", limit=None)
 
-        # Get counts for each status
-        for status in ["pending", "downloaded", "parsed", "analyzed", "failed"]:
-            df = self.db.select(
-                "search_results", filters={"status": status}, limit=None
-            )
-            count = len(df)
-            stats[status] = count
-            stats["total"] += count
+        counts = df["status"].value_counts()
+
+        stats = {status: counts.get(status, 0) for status in ["pending", "downloaded", "parsed", "analyzed", "failed"]}
+        stats["total"] = int(counts.sum())
 
         return stats
 

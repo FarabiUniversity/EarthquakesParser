@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Poetry
+poetry.lock
+
+# Environment
+.env
+.env.local
+
+# Docker
+volumes/
+*.pid
+*.log
+
+# macOS junk
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

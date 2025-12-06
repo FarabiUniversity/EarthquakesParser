@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "veritatis"
+version = "0.1.0"
+description = ""
+authors = ["Yelnur <adetbekovelnur@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.121.0"
+dotenv = "^0.9.9"
+pymilvus = "^2.6.3"
+uvicorn = "^0.38.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
