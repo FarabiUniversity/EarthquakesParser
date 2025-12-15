@@ -1,3 +1,5 @@
+"""Data model for representing search results in the earthquakes_parser project."""
+
 from typing import Optional
 
 

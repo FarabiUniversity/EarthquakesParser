@@ -2,6 +2,7 @@
 
 import time
 from typing import List, Optional
+
 from ddgs import DDGS
 
 from earthquakes_parser.search.base_searcher import BaseSearcher
@@ -12,17 +13,22 @@ class DDGSearcher(BaseSearcher):
     """DuckDuckGo searcher using ddgs library."""
 
     def __init__(self, delay: float = 1.0):
+        """Initialize the DuckDuckGo searcher.
+
+        Args:
+            delay: Delay in seconds between search requests to avoid rate limiting.
+        """
         self.ddgs = DDGS()
         self.delay = delay
 
     def search(
-            self,
-            query: str,
-            max_results: int = 5,
-            site_filter: Optional[str] = None,
-            offset: int = 0
+        self,
+        query: str,
+        max_results: int = 5,
+        site_filter: Optional[str] = None,
+        offset: int = 0,
     ) -> List[SearchResult]:
-        """DuckDuckGo search with optional site filter and offset support.
+        """Perform DuckDuckGo search with optional site filter and offset support.
 
         Args:
             query: Search query string.
@@ -50,11 +56,10 @@ class DDGSearcher(BaseSearcher):
                 filtered_items.append(SearchResult(query=query, link=link, title=title))
 
             # Apply offset and limit
-            results = filtered_items[offset:offset + max_results]
+            results = filtered_items[offset : offset + max_results]
 
         except Exception as e:
             print(f"DDG search error for '{query}': {e}")
 
         time.sleep(self.delay)
         return results
-

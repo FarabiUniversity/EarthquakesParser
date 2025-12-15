@@ -1,12 +1,11 @@
 """Business logic for managing earthquake search operations with Supabase storage."""
 
-from typing import List, Optional, Literal
+from typing import List, Literal, Optional
 
 from earthquakes_parser import SupabaseFileStorage
+from earthquakes_parser.search.base_searcher import BaseSearcher
 from earthquakes_parser.search.html_downloader import HTMLDownloader
 from earthquakes_parser.storage.supabase import SupabaseDB
-from earthquakes_parser.search.base_searcher import BaseSearcher
-from earthquakes_parser.search.search_result import SearchResult
 
 
 class SearchManager:
@@ -29,11 +28,11 @@ class SearchManager:
         self.searcher = searcher
 
     def search_and_save(
-            self,
-            keywords: List[str],
-            max_results: int = 5,
-            site_filter: Optional[str] = None,
-            skip_existing: bool = True,
+        self,
+        keywords: List[str],
+        max_results: int = 5,
+        site_filter: Optional[str] = None,
+        skip_existing: bool = True,
     ) -> dict:
         """Search for keywords and save results to database.
 
@@ -58,7 +57,7 @@ class SearchManager:
 
         for keyword in keywords:
             stats["searched"] += 1
-            collected = []
+            collected: List[dict] = []
             offset = 1
 
             while len(collected) < max_results:
@@ -67,7 +66,7 @@ class SearchManager:
                     query=keyword,
                     max_results=batch_size,
                     site_filter=site_filter,
-                    offset=offset
+                    offset=offset,
                 )
 
                 if not results:
@@ -77,17 +76,21 @@ class SearchManager:
                 offset += batch_size
 
                 for result in results:
-                    if skip_existing and self.db.exists("search_results", "link", result.link):
+                    if skip_existing and self.db.exists(
+                        "search_results", "link", result.link
+                    ):
                         stats["skipped"] += 1
                         continue
 
-                    collected.append({
-                        "query": result.query,
-                        "link": result.link,
-                        "title": result.title,
-                        "site_filter": site_filter,
-                        "status": "pending",
-                    })
+                    collected.append(
+                        {
+                            "query": result.query,
+                            "link": result.link,
+                            "title": result.title,
+                            "site_filter": site_filter,
+                            "status": "pending",
+                        }
+                    )
 
                     if len(collected) >= max_results:
                         break
@@ -110,9 +113,7 @@ class SearchManager:
         Returns:
             List of dicts with keys: id, query, link, title, status.
         """
-        df = self.db.select(
-            "search_results", filters={"status": status}, limit=limit
-        )
+        df = self.db.select("search_results", filters={"status": status}, limit=limit)
 
         if df.empty:
             return []
@@ -139,10 +140,10 @@ class SearchManager:
         return updated is not None
 
     def download_html(
-            self,
-            storage: SupabaseFileStorage,
-            fetch_with: Literal["bs4", "selenium"] = "bs4",
-            limit: int = 50
+        self,
+        storage: SupabaseFileStorage,
+        fetch_with: Literal["bs4", "selenium"] = "bs4",
+        limit: int = 50,
     ) -> dict:
         """Download HTML for pending URLs and upload to Supabase storage.
 
@@ -170,9 +171,9 @@ class SearchManager:
             path = f"{item['id']}.html"
             uploaded_path = storage.upload(path, html, content_type="text/html")
             if uploaded_path:
-                self.db.update("search_results", item["id"], {
-                    "html_storage_path": uploaded_path
-                })
+                self.db.update(
+                    "search_results", item["id"], {"html_storage_path": uploaded_path}
+                )
                 self.mark_as(item["id"], "downloaded")
                 stats["downloaded"] += 1
             else:
@@ -200,7 +201,10 @@ class SearchManager:
 
         counts = df["status"].value_counts()
 
-        stats = {status: counts.get(status, 0) for status in ["pending", "downloaded", "parsed", "analyzed", "failed"]}
+        stats = {
+            status: counts.get(status, 0)
+            for status in ["pending", "downloaded", "parsed", "analyzed", "failed"]
+        }
         stats["total"] = int(counts.sum())
 
         return stats

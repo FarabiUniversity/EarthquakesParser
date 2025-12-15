@@ -161,16 +161,16 @@ pending → downloaded
 
 ## Benefits
 
-✅ **Deduplication**  
+✅ **Deduplication**
 Avoids duplicate URLs using `skip_existing`.
 
-✅ **Status Tracking**  
+✅ **Status Tracking**
 Each result moves through a clear pipeline.
 
-✅ **Statistics**  
+✅ **Statistics**
 Track progress and completion rate.
 
-✅ **Modular Design**  
+✅ **Modular Design**
 Clean separation of logic:
 ```
 SearchManager:         Orchestrates full pipeline and business logic
