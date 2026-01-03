@@ -77,6 +77,9 @@ async def ingest(
    supabase_id: Optional[str] = Body(None),
    metadata: Optional[Dict[str, Any]] = Body(None)
 ):
+   if _store is None:
+      raise HTTPException(status_code=503, detail="Vector store not initialized. Check Milvus connection.")
+   
    normalized = " ".join(content.split()).strip()
    base = normalized + ("|" + source_url if source_url else "")
    record_id = hashlib.sha256(base.encode("utf-8")).hexdigest()
@@ -111,6 +114,9 @@ async def search(
    query: str = Body(..., embed=True),
    top_k: int = Body(10),
 ):
+   if _store is None:
+      raise HTTPException(status_code=503, detail="Vector store not initialized. Check Milvus connection.")
+   
    vec = embedding_generator.embed(query)
    collection = Collection(_TIER1)
    search_params = {"metric_type": "IP", "params": {"ef": 128}}

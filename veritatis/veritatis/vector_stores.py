@@ -120,8 +120,11 @@ class MilvusRecordStore:
 def create_collection_if_not_exists(name: str, fields, description: str, index_params: dict):
    """Create Milvus collection safely (idempotent)."""
    if utility.has_collection(name):
-      print(f"Collection '{name}' already exists — skipping.")
-      return Collection(name)
+      print(f"Collection '{name}' already exists — loading into memory.")
+      collection = Collection(name)
+      collection.load()
+      print(f"Collection '{name}' loaded.")
+      return collection
 
    schema = CollectionSchema(fields=fields, description=description)
    collection = Collection(name=name, schema=schema)
