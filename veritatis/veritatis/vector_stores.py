@@ -1,10 +1,18 @@
-from pymilvus import (
-   connections, MilvusClient,
-   FieldSchema, CollectionSchema, DataType, Collection, utility
-)
-from dotenv import load_dotenv
+"""Milvus vector store setup for Veritatis."""
+
 import os
 from typing import Dict, Any
+
+from dotenv import load_dotenv
+from pymilvus import (
+   Collection,
+   CollectionSchema,
+   DataType,
+   FieldSchema,
+   MilvusClient,
+   connections,
+   utility,
+)
 
 ENV = os.getenv("ENV", "development")
 if ENV == "development":
@@ -117,75 +125,100 @@ class MilvusRecordStore:
       print(f"Record id={record_id} moved {collection_from} -> {collection_to}")
       return True
 
-def create_collection_if_not_exists(name: str, fields, description: str, index_params: dict):
-   """Create Milvus collection safely (idempotent)."""
-   if utility.has_collection(name):
-      print(f"Collection '{name}' already exists — loading into memory.")
-      collection = Collection(name)
-      collection.load()
-      print(f"Collection '{name}' loaded.")
-      return collection
+def create_collection_if_not_exists(
+    name: str, fields, description: str, index_params: dict
+):
+    """Create Milvus collection safely (idempotent)."""
+    if utility.has_collection(name):
+        print(f"Collection '{name}' already exists — loading into memory.")
+        collection = Collection(name)
+        collection.load()
+        print(f"Collection '{name}' loaded.")
+        return collection
 
-   schema = CollectionSchema(fields=fields, description=description)
-   collection = Collection(name=name, schema=schema)
-   print(f"Created collection '{name}'.")
+    schema = CollectionSchema(fields=fields, description=description)
+    collection = Collection(name=name, schema=schema)
+    print(f"Created collection '{name}'.")
 
-   # Create index on embedding field
-   collection.create_index(field_name="embedding", index_params=index_params)
-   print(f"Index created for '{name}': {index_params}")
+    # Create index on embedding field
+    collection.create_index(field_name="embedding", index_params=index_params)
+    print(f"Index created for '{name}': {index_params}")
 
-   # Load collection into memory for querying
-   collection.load()
-   print(f"Collection '{name}' loaded into memory.")
+    # Load collection into memory for querying
+    collection.load()
+    print(f"Collection '{name}' loaded into memory.")
 
-   return collection
+    return collection
+
+
 def init_collections():
-   """Initialize all three Veritatis tiers."""
+    """Initialize all three Veritatis tiers."""
 
-	# Tier 1: Lacus Factorum
-   tier1_fields = [
-		FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
-		FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
-      FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-		FieldSchema(name="source_url", dtype=DataType.VARCHAR, max_length=500),
-		FieldSchema(name="credibility_score", dtype=DataType.FLOAT),
-		FieldSchema(name="ingested_timestamp", dtype=DataType.INT64),
-      FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
-   ]
-   tier1_index = {"index_type": "HNSW", "metric_type": "IP", "params": {"M": 32, "efConstruction": 200}}
+    # Tier 1: Lacus Factorum
+    tier1_fields = [
+        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
+        FieldSchema(name="source_url", dtype=DataType.VARCHAR, max_length=500),
+        FieldSchema(name="credibility_score", dtype=DataType.FLOAT),
+        FieldSchema(name="ingested_timestamp", dtype=DataType.INT64),
+        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
+    ]
+    tier1_index = {
+        "index_type": "HNSW",
+        "metric_type": "IP",
+        "params": {"M": 32, "efConstruction": 200},
+    }
 
-   create_collection_if_not_exists(
-		"veritatis_tier1_lake", tier1_fields, "Lacus Factorum — unverified facts", tier1_index
-	)
+    create_collection_if_not_exists(
+        "veritatis_tier1_lake",
+        tier1_fields,
+        "Lacus Factorum — unverified facts",
+        tier1_index,
+    )
 
-	# Tier 2: Arena Veritatis
-   tier2_fields = [
-		FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
-		FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
-      FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-		FieldSchema(name="verification_confidence", dtype=DataType.FLOAT),
-		FieldSchema(name="cross_source_count", dtype=DataType.INT64),
-      FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
-   ]
-   tier2_index = {"index_type": "HNSW", "metric_type": "IP", "params": {"M": 32, "efConstruction": 300}}
+    # Tier 2: Arena Veritatis
+    tier2_fields = [
+        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
+        FieldSchema(name="verification_confidence", dtype=DataType.FLOAT),
+        FieldSchema(name="cross_source_count", dtype=DataType.INT64),
+        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
+    ]
+    tier2_index = {
+        "index_type": "HNSW",
+        "metric_type": "IP",
+        "params": {"M": 32, "efConstruction": 300},
+    }
 
-   create_collection_if_not_exists(
-		"veritatis_tier2_arena", tier2_fields, "Arena Veritatis — candidate facts", tier2_index
-	)
+    create_collection_if_not_exists(
+        "veritatis_tier2_arena",
+        tier2_fields,
+        "Arena Veritatis — candidate facts",
+        tier2_index,
+    )
 
-	# Tier 3: Sanctum Veritatis
-   tier3_fields = [
-		FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
-		FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
-      FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-		FieldSchema(name="verified_by", dtype=DataType.VARCHAR, max_length=200),
-		FieldSchema(name="last_review_timestamp", dtype=DataType.INT64),
-      FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
-   ]
-   tier3_index = {"index_type": "HNSW", "metric_type": "IP", "params": {"M": 32, "efConstruction": 400}}
+    # Tier 3: Sanctum Veritatis
+    tier3_fields = [
+        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
+        FieldSchema(name="verified_by", dtype=DataType.VARCHAR, max_length=200),
+        FieldSchema(name="last_review_timestamp", dtype=DataType.INT64),
+        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
+    ]
+    tier3_index = {
+        "index_type": "HNSW",
+        "metric_type": "IP",
+        "params": {"M": 32, "efConstruction": 400},
+    }
 
-   create_collection_if_not_exists(
-		"veritatis_tier3_sanctum", tier3_fields, "Sanctum Veritatis — verified facts", tier3_index
-	)
+    create_collection_if_not_exists(
+        "veritatis_tier3_sanctum",
+        tier3_fields,
+        "Sanctum Veritatis — verified facts",
+        tier3_index,
+    )
 
-   print("✅ All collections initialized.")
+    print("✅ All collections initialized.")

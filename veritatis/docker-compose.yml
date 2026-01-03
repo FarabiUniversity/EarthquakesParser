@@ -35,11 +35,20 @@ services:
       - milvus
   milvus:
     container_name: milvus-standalone
-    image: milvusdb/milvus:v2.6.6
+    image: milvusdb/milvus:latest
     command: ["milvus", "run", "standalone"]
     environment:
       ETCD_ENDPOINTS: etcd:2379
       MINIO_ADDRESS: minio:9000
+      # Disable streaming nodes
+      COMMON_STREAMINGSERVICEENABLED: "false"
+      # Reduce memory usage
+      QUERYNODE_CACHE_MEMORYLIMIT: 512
+      DATANODE_MEMORY_FORCESYNCENABLED: "false"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     volumes:
       - ./volumes/milvus:/var/lib/milvus
     healthcheck:
@@ -66,6 +75,8 @@ services:
       - ENV=development
       - MILVUS_HOST=milvus
       - MILVUS_PORT=19530
+    volumes:
+      - ./volumes/huggingface_cache:/root/.cache/huggingface
     depends_on:
       - milvus
     networks:
