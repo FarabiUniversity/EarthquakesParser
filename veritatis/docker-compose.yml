@@ -21,8 +21,8 @@ services:
     container_name: milvus-minio
     image: minio/minio:RELEASE.2023-03-20T20-16-18Z
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
       - ./volumes/minio:/data
     command: minio server /minio_data

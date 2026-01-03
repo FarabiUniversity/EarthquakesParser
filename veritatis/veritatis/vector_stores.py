@@ -18,6 +18,7 @@ ENV = os.getenv("ENV", "development")
 if ENV == "development":
    load_dotenv()
 
+
 MILVUS_SKIP_CONNECT = os.getenv("MILVUS_SKIP_CONNECT", "false").lower() == "true"
 MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
 MILVUS_PORT = int(os.getenv("MILVUS_PORT", "19530"))
@@ -39,6 +40,8 @@ def ensure_connection() -> None:
       raise
 
 class MilvusRecordStore:
+   """Manage records in Milvus collections."""
+   
    def __init__(self, uri=None, host=None, port=None, client=None):
       # Initialize connection lazily to avoid import-time failures
       ensure_connection()
@@ -93,6 +96,7 @@ class MilvusRecordStore:
       return len(results) > 0
 
    def delete_record(self, collection_name:str, record_id: str):
+      """Delete a record from a collection."""
       collection = Collection(collection_name)
       # Use 'in' expression which is more reliable for VARCHAR primary keys
       result = collection.delete(expr=f'id in ["{record_id}"]')
@@ -103,6 +107,7 @@ class MilvusRecordStore:
       print(f"Deleted record {record_id} from {collection_name}; delete_count={getattr(result, 'delete_count', 'unknown')}")
 
    def get_record(self, collection_name: str, record_id: str):
+      """Retrieve a record from a collection."""
       # Query with explicit field names including the vector field
       try:
          collection = Collection(collection_name)
@@ -115,6 +120,7 @@ class MilvusRecordStore:
       return results[0] if results else None
    
    def move_record(self, collection_from: str, collection_to: str, record_id: str):
+      """Move a record between collections."""
       record = self.get_record(collection_from, record_id)
       if not record:
          print(f"No such record found in {collection_from}")
