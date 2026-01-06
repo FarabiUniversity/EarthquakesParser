@@ -1,3 +1,5 @@
+"""Integration tests for the Milvus-backed vector store."""
+
 import json
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -12,16 +14,19 @@ ALMATY_TZ = timezone(timedelta(hours=5))
 
 
 def _rand_id():
+	"""Return a short random id suitable for use as a primary key."""
 	return uuid.uuid4().hex[:24]
 
 
 def _embedding():
+	"""Return a deterministic embedding vector of length EMBED_DIM."""
 	# Simple deterministic vector of length EMBED_DIM
 	return [float(i) / EMBED_DIM for i in range(EMBED_DIM)]
 
 
 @pytest.fixture(scope="module", autouse=True)
 def _ensure_milvus():
+	"""Skip tests if Milvus is not reachable."""
 	# Ensure we can reach a real Milvus; skip if unavailable
 	try:
 		vs.ensure_connection()
@@ -30,6 +35,7 @@ def _ensure_milvus():
 
 
 def test_insert_and_exists_and_get():
+	"""Insert a record and verify exists/get works."""
 	store = vs.MilvusRecordStore()
 
 	name = f"it_single_{_rand_id()}"
@@ -70,6 +76,7 @@ def test_insert_and_exists_and_get():
 
 
 def test_insert_batch_and_move():
+	"""Insert a batch, then move one record between collections."""
 	store = vs.MilvusRecordStore()
 
 	src = f"it_src_{_rand_id()}"
