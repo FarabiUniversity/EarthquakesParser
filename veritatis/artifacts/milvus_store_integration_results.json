@@ -1,8 +1,8 @@
 {
   "test": "insert_exists_get",
-  "collection": "it_single_167945725f6c47a59078a8d7",
-  "id": "08e7e09b683b4ed59f55421e",
+  "collection": "it_single_b9acbcfe0a0848b490652506",
+  "id": "5067ec3e2bee4660bd312b84",
   "content": "Hello",
   "embedding_dim": 384,
-  "timestamp": "2026-01-03T23:58:03.569345+05:00"
+  "timestamp": "2026-01-07T14:55:48.547074+05:00"
 }
