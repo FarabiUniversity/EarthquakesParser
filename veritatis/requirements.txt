@@ -1,4 +1,4 @@
 fastapi==0.121.0
 uvicorn==0.39.0
-pymilvus==2.6.3
+pymilvus==2.6.6
 python-dotenv==1.2.1
