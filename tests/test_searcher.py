@@ -4,11 +4,15 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
+from dotenv import load_dotenv
 
 from earthquakes_parser import SupabaseDB, SupabaseFileStorage
 from earthquakes_parser.search import GoogleSearcher, SearchManager
 from earthquakes_parser.search.base_searcher import BaseSearcher
 from earthquakes_parser.search.search_result import SearchResult
+
+# Load environment variables
+load_dotenv()
 
 
 class TestSearchResult:
