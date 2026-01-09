@@ -1,18 +1,14 @@
 """Tests for the searcher modules."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
-from dotenv import load_dotenv
 
-from earthquakes_parser import SupabaseDB, SupabaseFileStorage
-from earthquakes_parser.search import GoogleSearcher, SearchManager
+from earthquakes_parser import SupabaseDB
+from earthquakes_parser.search import DDGSearcher, SearchManager
 from earthquakes_parser.search.base_searcher import BaseSearcher
 from earthquakes_parser.search.search_result import SearchResult
-
-# Load environment variables
-load_dotenv()
 
 
 class TestSearchResult:
@@ -38,20 +34,21 @@ class TestSearchResult:
         assert data["title"] == "Test"
 
 
-class TestGoogleSearcher:
-    """Tests for GoogleSearcher class."""
+class TestDDGSearcher:
+    """Tests for DDGSearcher class."""
 
     def test_searcher_initialization(self):
         """Test searcher initialization."""
-        searcher = GoogleSearcher(delay=0.1)
+        searcher = DDGSearcher(delay=0.1)
         assert searcher.delay == 0.1
+        assert searcher.ddgs is not None
 
     def test_load_keywords_from_file(self, tmp_path):
         """Test loading keywords from file."""
         keywords_file = tmp_path / "keywords.txt"
         keywords_file.write_text("keyword1\nkeyword2\nkeyword3\n")
 
-        keywords = GoogleSearcher.load_keywords_from_file(str(keywords_file))
+        keywords = DDGSearcher.load_keywords_from_file(str(keywords_file))
 
         assert len(keywords) == 3
         assert "keyword1" in keywords
@@ -102,6 +99,37 @@ class TestSearchManager:
         assert stats["new"] == 1
         assert stats["skipped"] == 0
 
+    def test_search_and_save_skip_existing(self):
+        """Test search skipping existing URLs."""
+        mock_db = MagicMock(spec=SupabaseDB)
+        mock_searcher = MockSearcher()
+        manager = SearchManager(db=mock_db, searcher=mock_searcher)
+
+        mock_searcher.results = [
+            SearchResult("test", "https://example.com/1", "Title 1")
+        ]
+        mock_db.exists.return_value = True
+        mock_db.insert.return_value = []
+
+        stats = manager.search_and_save(["test"], max_results=1)
+
+        assert stats["skipped"] == 1
+        assert stats["new"] == 0
+
+    def test_search_and_save_no_results(self):
+        """Test search with no results."""
+        mock_db = MagicMock(spec=SupabaseDB)
+        mock_searcher = MockSearcher()
+        manager = SearchManager(db=mock_db, searcher=mock_searcher)
+
+        mock_searcher.results = []
+
+        stats = manager.search_and_save(["test"], max_results=1)
+
+        assert stats["searched"] == 1
+        assert stats["new"] == 0
+        assert mock_db.insert.call_count == 0
+
     def test_get_urls(self):
         """Test getting URLs."""
         mock_db = MagicMock(spec=SupabaseDB)
@@ -117,8 +145,20 @@ class TestSearchManager:
         assert len(urls) == 1
         assert urls[0]["id"] == "1"
 
-    def test_mark_as(self):
-        """Test marking status."""
+    def test_get_urls_empty(self):
+        """Test getting URLs when database is empty."""
+        mock_db = MagicMock(spec=SupabaseDB)
+        mock_searcher = MockSearcher()
+        manager = SearchManager(db=mock_db, searcher=mock_searcher)
+
+        mock_db.select.return_value = pd.DataFrame()
+
+        urls = manager.get_urls(status="pending")
+
+        assert urls == []
+
+    def test_mark_as_success(self):
+        """Test marking status successfully."""
         mock_db = MagicMock(spec=SupabaseDB)
         mock_searcher = MockSearcher()
         manager = SearchManager(db=mock_db, searcher=mock_searcher)
@@ -128,6 +168,18 @@ class TestSearchManager:
         result = manager.mark_as("123", "downloaded")
 
         assert result is True
+
+    def test_mark_as_failure(self):
+        """Test marking status when update fails."""
+        mock_db = MagicMock(spec=SupabaseDB)
+        mock_searcher = MockSearcher()
+        manager = SearchManager(db=mock_db, searcher=mock_searcher)
+
+        mock_db.update.return_value = None
+
+        result = manager.mark_as("123", "downloaded")
+
+        assert result is False
 
     def test_get_statistics(self):
         """Test getting statistics."""
@@ -148,3 +200,17 @@ class TestSearchManager:
         assert stats["total"] == 3
         assert stats["pending"] == 2
         assert stats["downloaded"] == 1
+
+    def test_get_statistics_empty(self):
+        """Test statistics with empty database."""
+        mock_db = MagicMock(spec=SupabaseDB)
+        mock_searcher = MockSearcher()
+        manager = SearchManager(db=mock_db, searcher=mock_searcher)
+
+        mock_db.select.return_value = pd.DataFrame(columns=["status"])
+
+        stats = manager.get_statistics()
+
+        assert stats["total"] == 0
+        assert stats["pending"] == 0
+        assert stats["downloaded"] == 0
