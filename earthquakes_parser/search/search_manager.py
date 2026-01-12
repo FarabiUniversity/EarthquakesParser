@@ -1,10 +1,11 @@
 """Business logic for managing earthquake search operations with Supabase storage."""
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 
-from earthquakes_parser.storage.supabase import SupabaseDB
+from earthquakes_parser import SupabaseFileStorage
 from earthquakes_parser.search.base_searcher import BaseSearcher
-from earthquakes_parser.search.search_result import SearchResult
+from earthquakes_parser.search.html_downloader import HTMLDownloader
+from earthquakes_parser.storage.supabase import SupabaseDB
 
 
 class SearchManager:
@@ -35,92 +36,98 @@ class SearchManager:
     ) -> dict:
         """Search for keywords and save results to database.
 
-        Business logic:
-        1. Search using KeywordSearcher
-        2. Check for duplicates (deduplication)
-        3. Save new results with status='pending'
-        4. Return statistics
+        Ensures exactly `max_results` new results are saved per keyword,
+        skipping duplicates and continuing search with offset if needed.
 
         Args:
             keywords: List of search keywords.
-            max_results: Maximum results per keyword.
+            max_results: Number of new results to save per keyword.
             site_filter: Optional site filter (e.g., 'instagram.com').
             skip_existing: Skip URLs that already exist in database.
 
         Returns:
             Dict with statistics: {
-                'searched': int,  # Total keywords searched
-                'found': int,     # Total results found
-                'new': int,       # New results saved
-                'skipped': int    # Existing results skipped
+                'searched': int,
+                'found': int,
+                'new': int,
+                'skipped': int
             }
         """
         stats = {"searched": 0, "found": 0, "new": 0, "skipped": 0}
 
-        # Collect all search results
-        all_results: List[SearchResult] = []
         for keyword in keywords:
-            results = self.searcher.search(keyword, max_results, site_filter)
-            all_results.extend(results)
             stats["searched"] += 1
-            stats["found"] += len(results)
+            collected: List[dict] = []
+            offset = 1
 
-        if not all_results:
-            return stats
+            while len(collected) < max_results:
+                batch_size = 10
+                results = self.searcher.search(
+                    query=keyword,
+                    max_results=batch_size,
+                    site_filter=site_filter,
+                    offset=offset,
+                )
 
-        # Prepare data for database
-        new_results = []
-        for result in all_results:
-            # Business logic: Check if URL already exists (deduplication)
-            if skip_existing and self.db.exists("search_results", "link", result.link):
-                stats["skipped"] += 1
-                continue
+                if not results:
+                    break
 
-            # Prepare record with initial status
-            new_results.append(
-                {
-                    "query": result.query,
-                    "link": result.link,
-                    "title": result.title,
-                    "status": "pending",  # Initial status
-                }
-            )
+                stats["found"] += len(results)
+                offset += batch_size
 
-        # Save to database
-        if new_results:
-            inserted_ids = self.db.insert("search_results", new_results)
-            stats["new"] = len(inserted_ids)
+                for result in results:
+                    if skip_existing and self.db.exists(
+                        "search_results", "link", result.link
+                    ):
+                        stats["skipped"] += 1
+                        continue
+
+                    collected.append(
+                        {
+                            "query": result.query,
+                            "link": result.link,
+                            "title": result.title,
+                            "site_filter": site_filter,
+                            "status": "pending",
+                        }
+                    )
+
+                    if len(collected) >= max_results:
+                        break
+
+            if collected:
+                inserted_ids = self.db.insert("search_results", collected)
+                stats["new"] += len(inserted_ids)
 
         return stats
 
-    def get_pending_urls(self, limit: int = 100) -> List[dict]:
+    def get_urls(self, status: str = "pending", limit: int = 100) -> List[dict]:
         """Get URLs that need to be downloaded.
 
-        Business logic: Fetch records with status='pending'.
+        Business logic: Fetch records with status.
 
         Args:
+            status: Search status (e.g. 'pending').
             limit: Maximum number of URLs to return.
 
         Returns:
             List of dicts with keys: id, query, link, title, status.
         """
-        df = self.db.select(
-            "search_results", filters={"status": "pending"}, limit=limit
-        )
+        df = self.db.select("search_results", filters={"status": status}, limit=limit)
 
         if df.empty:
             return []
 
         return list(df.to_dict("records"))
 
-    def mark_as_downloaded(self, search_result_id: str, html_storage_path: str) -> bool:
+    def mark_as(self, search_result_id: str, status: str) -> bool:
         """Mark a search result as downloaded.
 
         Business logic: Update status from 'pending' to 'downloaded'.
 
         Args:
             search_result_id: ID of the search result.
-            html_storage_path: Path where HTML was saved in storage.
+            status: Search status (e.g. 'pending').
 
         Returns:
             True if successful, False otherwise.
@@ -128,27 +135,52 @@ class SearchManager:
         updated = self.db.update(
             "search_results",
             search_result_id,
-            {"status": "downloaded", "html_storage_path": html_storage_path},
+            {"status": status},
         )
         return updated is not None
 
-    def mark_as_failed(self, search_result_id: str, error_message: str = "") -> bool:
-        """Mark a search result as failed.
-
-        Business logic: Update status to 'failed' with optional error message.
+    def download_html(
+        self,
+        storage: SupabaseFileStorage,
+        fetch_with: Literal["bs4", "selenium"] = "bs4",
+        limit: int = 50,
+    ) -> dict:
+        """Download HTML for pending URLs and upload to Supabase storage.
 
         Args:
-            search_result_id: ID of the search result.
-            error_message: Optional error message for debugging.
+            storage: SupabaseFileStorage instance.
+            fetch_with: HTML fetch method: 'bs4' or 'selenium'.
+            limit: Max number of URLs to process.
 
         Returns:
-            True if successful, False otherwise.
+            Dict with stats: {'downloaded': int, 'failed': int}
         """
-        # Note: error_message not stored in current schema, but kept for future
-        updated = self.db.update(
-            "search_results", search_result_id, {"status": "failed"}
-        )
-        return updated is not None
+        stats = {"downloaded": 0, "failed": 0}
+        urls = self.get_urls(status="pending", limit=limit)
+        downloader = HTMLDownloader(fetch_with=fetch_with)
+
+        for item in urls:
+            url = item["link"]
+            html = downloader.fetch_html(url)
+
+            if not html.strip():
+                self.mark_as(item["id"], "failed")
+                stats["failed"] += 1
+                continue
+
+            path = f"{item['id']}.html"
+            uploaded_path = storage.upload(path, html, content_type="text/html")
+            if uploaded_path:
+                self.db.update(
+                    "search_results", item["id"], {"html_storage_path": uploaded_path}
+                )
+                self.mark_as(item["id"], "downloaded")
+                stats["downloaded"] += 1
+            else:
+                self.mark_as(item["id"], "failed")
+                stats["failed"] += 1
+
+        return stats
 
     def get_statistics(self) -> dict:
         """Get search statistics.
@@ -165,23 +197,15 @@ class SearchManager:
                 'failed': int
             }
         """
-        stats = {
-            "total": 0,
-            "pending": 0,
-            "downloaded": 0,
-            "parsed": 0,
-            "analyzed": 0,
-            "failed": 0,
-        }
+        df = self.db.select("search_results", limit=None)
 
-        # Get counts for each status
-        for status in ["pending", "downloaded", "parsed", "analyzed", "failed"]:
-            df = self.db.select(
-                "search_results", filters={"status": status}, limit=None
-            )
-            count = len(df)
-            stats[status] = count
-            stats["total"] += count
+        counts = df["status"].value_counts()
+
+        stats = {
+            status: counts.get(status, 0)
+            for status in ["pending", "downloaded", "parsed", "analyzed", "failed"]
+        }
+        stats["total"] = int(counts.sum())
 
         return stats
 

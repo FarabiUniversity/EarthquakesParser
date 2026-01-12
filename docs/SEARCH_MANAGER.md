@@ -6,6 +6,7 @@
 
 - `BaseSearcher`: abstract interface for search engines
 - `GoogleSearcher` / `DDGSearcher`: concrete implementations
+- `HTMLDownloade`: modular HTML fetcher supporting both [bs4](https://pypi.org/project/beautifulsoup4/) and [selenium](https://pypi.org/project/selenium/) strategies for dynamic or static page loading
 - `SupabaseDB`: database utility for persistence and status tracking
 
 ## Architecture
@@ -14,6 +15,9 @@ SearchManager
 ├── BaseSearcher (abstract interface)
 │   ├── GoogleSearcher
 │   └── DDGSearcher
+├── HTMLDownloader
+│   ├── fetch_with_bs4()
+│   └── fetch_with_selenium()
 └── SupabaseDB
 ```
 
@@ -75,31 +79,46 @@ search_manager.search_and_save(
 }
 ```
 
-### `get_pending_urls()`
+### `get_urls()`
 
-Get URLs with status `"pending"`.
+Get URLs with status.
 ```python
-search_manager.get_pending_urls(limit: int = 100) -> List[dict]
+search_manager.get_urls(status: str = "pending", limit: int = 100) -> List[dict]
 ```
 
-### `mark_as_downloaded()`
+### `mark_as()`
 
 Mark a result as downloaded.
 ```python
 search_manager.mark_as_downloaded(
     search_result_id: str,
-    html_storage_path: str
+    status: str
 ) -> bool
 ```
 
-### `mark_as_failed()`
+Вот документация в том же стиле для метода `download_html()`:
 
-Mark a result as failed.
+---
+
+### `download_html()`
+
+Download HTML content for pending URLs and upload to Supabase storage.
+
 ```python
-search_manager.mark_as_failed(
-    search_result_id: str,
-    error_message: str = ""
-) -> bool
+search_manager.download_html(storage, fetch_with="selenium", limit=50) -> dict
+```
+
+**Args:**
+- `storage`: Instance of `SupabaseFileStorage` used for uploading HTML files.
+- `fetch_with`: HTML fetch strategy — `"bs4"` for static pages or `"selenium"` for dynamic content.
+- `limit`: Maximum number of pending URLs to process.
+
+**Returns:**
+```python
+{
+    'downloaded': int,  # Successfully fetched and uploaded
+    'failed': int       # Failed to fetch or upload
+}
 ```
 
 ### `get_statistics()`
@@ -135,29 +154,31 @@ search_manager.search_with_keywords_file(
 
 ## Status Workflow
 ```
-pending → downloaded → parsed → analyzed
+pending → downloaded
            ↓
          failed
 ```
 
 ## Benefits
 
-✅ **Deduplication**  
+✅ **Deduplication**
 Avoids duplicate URLs using `skip_existing`.
 
-✅ **Status Tracking**  
+✅ **Status Tracking**
 Each result moves through a clear pipeline.
 
-✅ **Statistics**  
+✅ **Statistics**
 Track progress and completion rate.
 
-✅ **Modular Design**  
+✅ **Modular Design**
 Clean separation of logic:
 ```
-SearchManager:  Business logic
-BaseSearcher:   Interface for search engines
-GoogleSearcher/DDGSearcher: Search implementations
-SupabaseDB:     Persistence layer
+SearchManager:         Orchestrates full pipeline and business logic
+BaseSearcher:          Abstract interface for search engines
+GoogleSearcher/DDGSearcher:  Concrete search implementations
+HTMLDownloader:        Modular HTML fetcher (bs4 or selenium)
+SupabaseDB:            Persistence and status tracking
+SupabaseFileStorage:   HTML file upload and linking
 ```
 
 ## See Also

@@ -1,25 +1,35 @@
 """Test SearchManager business logic with Supabase."""
 
 import os
+import sys
 import tempfile
+from pathlib import Path
 
 from dotenv import load_dotenv
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Load environment
 load_dotenv()
 
-from earthquakes_parser import SearchManager, SupabaseDB
+from earthquakes_parser import SupabaseDB, SupabaseFileStorage
+from earthquakes_parser.search import GoogleSearcher, SearchManager
 
 print("=" * 60)
 print("Test SearchManager Business Logic")
 print("=" * 60)
 
-# Initialize utilities
+# Initialize components
 db = SupabaseDB()
-search_manager = SearchManager(db)
+searcher = GoogleSearcher(delay=1.0)
+search_manager = SearchManager(db=db, searcher=searcher)
+file_storage = SupabaseFileStorage(bucket_name="html-files")
 
 print("\n✓ SearchManager initialized")
 print("✓ Using SupabaseDB for persistence")
+print("✓ Using GoogleSearcher for keyword search")
+print("✓ Using SupabaseFileStorage for HTML upload")
 
 # Test 1: Search and save with deduplication
 print("\n" + "=" * 60)
@@ -42,44 +52,23 @@ print(f"   ✓ Total results found: {stats['found']}")
 print(f"   ✓ New results saved: {stats['new']}")
 print(f"   ✓ Existing skipped: {stats['skipped']}")
 
-# Test 2: Get pending URLs
+# Test 2: Download HTML for pending URLs
 print("\n" + "=" * 60)
-print("Test 2: Get Pending URLs for Download")
+print("Test 2: Download HTML for Pending URLs")
 print("=" * 60)
 
-print("\n⏳ Fetching pending URLs...")
-pending_urls = search_manager.get_pending_urls(limit=5)
+print("\n⏳ Downloading HTML with Selenium...")
+download_stats = search_manager.download_html(
+    storage=file_storage, fetch_with="selenium", limit=5
+)
 
-print(f"\n✓ Found {len(pending_urls)} pending URLs")
-if pending_urls:
-    print("\nFirst 3 pending URLs:")
-    for i, url_data in enumerate(pending_urls[:3], 1):
-        print(f"   {i}. {url_data['title']}")
-        print(f"      URL: {url_data['link']}")
-        print(f"      Query: {url_data['query']}")
-        print(f"      Status: {url_data['status']}")
+print(f"\n📊 Download Results:")
+print(f"   ✓ HTML downloaded: {download_stats['downloaded']}")
+print(f"   ✗ Failed downloads: {download_stats['failed']}")
 
-# Test 3: Mark as downloaded
-if pending_urls:
-    print("\n" + "=" * 60)
-    print("Test 3: Mark URL as Downloaded")
-    print("=" * 60)
-
-    test_result = pending_urls[0]
-    print(f"\n⏳ Marking as downloaded: {test_result['title']}")
-
-    success = search_manager.mark_as_downloaded(
-        test_result["id"], html_storage_path="html/test_file.html"
-    )
-
-    if success:
-        print("✓ Successfully marked as downloaded")
-    else:
-        print("✗ Failed to mark as downloaded")
-
-# Test 4: Get statistics
+# Test 3: Get statistics
 print("\n" + "=" * 60)
-print("Test 4: Get Search Statistics")
+print("Test 3: Get Search Statistics")
 print("=" * 60)
 
 print("\n⏳ Fetching statistics...")
@@ -93,9 +82,9 @@ print(f"   Parsed: {stats['parsed']}")
 print(f"   Analyzed: {stats['analyzed']}")
 print(f"   Failed: {stats['failed']}")
 
-# Test 5: Search from keywords file
+# Test 4: Search from keywords file
 print("\n" + "=" * 60)
-print("Test 5: Search with Keywords File")
+print("Test 4: Search with Keywords File")
 print("=" * 60)
 
 # Create temporary keywords file
@@ -130,13 +119,12 @@ print("=" * 60)
 
 print("\n📝 SearchManager Features Demonstrated:")
 print("   1. ✅ Search and save with automatic deduplication")
-print("   2. ✅ Get pending URLs for download pipeline")
-print("   3. ✅ Mark URLs as downloaded (status management)")
-print("   4. ✅ Get comprehensive statistics")
-print("   5. ✅ Search from keywords file")
+print("   2. ✅ Download HTML with modular fetcher (bs4 or selenium)")
+print("   3. ✅ Get comprehensive statistics")
+print("   4. ✅ Search from keywords file")
 
 print("\n🎯 Business Logic Benefits:")
 print("   • Automatic deduplication prevents duplicate URLs")
 print("   • Status tracking enables pipeline workflow")
 print("   • Statistics provide visibility into data")
-print("   • Reusable methods for different workflows")
+print("   • Modular design supports flexible workflows")

@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Install uv
       uses: astral-sh/setup-uv@v2
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Install uv
       uses: astral-sh/setup-uv@v2
@@ -68,7 +68,7 @@ jobs:
         python -m build
 
     - name: Store distribution packages
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       with:
         name: python-package-distributions
         path: dist/
@@ -79,10 +79,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - name: Download distribution packages
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v7
       with:
         name: python-package-distributions
         path: dist/
@@ -124,7 +124,7 @@ jobs:
   #
   #   steps:
   #   - name: Download distribution packages
-  #     uses: actions/download-artifact@v3
+  #     uses: actions/download-artifact@v7
   #     with:
   #       name: python-package-distributions
   #       path: dist/

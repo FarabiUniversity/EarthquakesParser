@@ -3,9 +3,10 @@
 import sys
 from pathlib import Path
 
-from earthquakes_parser import CSVStorage, SupabaseDB
-from earthquakes_parser.search import GoogleSearcher, SearchManager
+from dotenv import load_dotenv
 
+from earthquakes_parser import SupabaseDB, SupabaseFileStorage
+from earthquakes_parser.search import GoogleSearcher, SearchManager
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -14,28 +15,26 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 def main():
     """Demonstrate searching for earthquake-related keywords."""
     # Initialize components
+    load_dotenv()
     searcher = GoogleSearcher(delay=1.0)
-    keywords = ["землетрясение", "магнитуда", "эпицентр"]
-    storage = CSVStorage(base_path="sandbox/data")
-
-    # Search Instagram
-    print("Searching Instagram...")
-    instagram_df = searcher.search_to_dataframe(
-        keywords, max_results=3, site_filter="instagram.com"
-    )
-    storage.save_dataframe(instagram_df, "instagram_results.csv")
-    print(f"Saved {len(instagram_df)} Instagram results")
-
-    # Search general web
-    print("\nSearching web...")
-    web_df = searcher.search_to_dataframe(keywords, max_results=3)
-    storage.save_dataframe(web_df, "web_results.csv")
-    print(f"Saved {len(web_df)} web results")
+    keywords = [
+        "землетрясение в алматы",
+        "магнитуда землетрясение в алматы",
+        "эпицентр землетрясение в алматы",
+    ]
 
     database = SupabaseDB()
     search_manager = SearchManager(db=database, searcher=searcher)
-    stats = search_manager.get_statistics()
-    print(f"Stats: {stats}")
+    search_results_stat = search_manager.search_and_save(
+        keywords=keywords, max_results=1
+    )
+    print(search_results_stat)
+
+    file_storage = SupabaseFileStorage(bucket_name="html-files")
+    download_results_stat = search_manager.download_html(
+        file_storage, fetch_with="selenium"
+    )
+    print(download_results_stat)
 
 
 if __name__ == "__main__":

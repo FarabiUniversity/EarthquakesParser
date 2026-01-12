@@ -29,6 +29,8 @@ dependencies = [
     "torch>=2.0.0",
     "python-dotenv>=1.2.1",
     "supabase>=2.22.1",
+    "selenium>=4.32.0",
+    "fastapi>=0.123.10",
 ]
 
 [project.optional-dependencies]
