@@ -1,9 +1,10 @@
 """Test SearchManager business logic with Supabase."""
 
 import os
-import tempfile
 import sys
+import tempfile
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Add parent directory to path for imports
@@ -13,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 load_dotenv()
 
 from earthquakes_parser import SupabaseDB, SupabaseFileStorage
-from earthquakes_parser.search import SearchManager, GoogleSearcher
+from earthquakes_parser.search import GoogleSearcher, SearchManager
 
 print("=" * 60)
 print("Test SearchManager Business Logic")
@@ -58,9 +59,7 @@ print("=" * 60)
 
 print("\n⏳ Downloading HTML with Selenium...")
 download_stats = search_manager.download_html(
-    storage=file_storage,
-    fetch_with="selenium",
-    limit=5
+    storage=file_storage, fetch_with="selenium", limit=5
 )
 
 print(f"\n📊 Download Results:")

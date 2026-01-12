@@ -10,5 +10,5 @@ __all__ = [
     "BaseSearcher",
     "GoogleSearcher",
     "DDGSearcher",
-    "SearchManager"
+    "SearchManager",
 ]

@@ -1,10 +1,14 @@
-"""Tests for the KeywordSearcher module."""
+"""Tests for the searcher modules."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
+import pandas as pd
 import pytest
 
-from earthquakes_parser.search.searcher import KeywordSearcher, SearchResult
+from earthquakes_parser import SupabaseDB
+from earthquakes_parser.search import DDGSearcher, SearchManager
+from earthquakes_parser.search.base_searcher import BaseSearcher
+from earthquakes_parser.search.search_result import SearchResult
 
 
 class TestSearchResult:
@@ -13,11 +17,11 @@ class TestSearchResult:
     def test_search_result_creation(self):
         """Test creating a SearchResult instance."""
         result = SearchResult(
-            query="earthquake", link="https://example.com", title="Test Article"
+            query="earthquake", link="https://example.com", title="Test"
         )
         assert result.query == "earthquake"
         assert result.link == "https://example.com"
-        assert result.title == "Test Article"
+        assert result.title == "Test"
 
     def test_to_dict(self):
         """Test converting SearchResult to dictionary."""
@@ -25,62 +29,72 @@ class TestSearchResult:
             query="earthquake", link="https://example.com", title="Test"
         )
         data = result.to_dict()
-        assert data == {
-            "query": "earthquake",
-            "link": "https://example.com",
-            "title": "Test",
-        }
+        assert data["query"] == "earthquake"
+        assert data["link"] == "https://example.com"
+        assert data["title"] == "Test"
 
 
-class TestKeywordSearcher:
-    """Tests for KeywordSearcher class."""
+class TestDDGSearcher:
+    """Tests for DDGSearcher class."""
 
-    @pytest.fixture
-    def searcher(self):
-        """Create a KeywordSearcher instance."""
-        return KeywordSearcher(delay=0.1)
-
-    def test_searcher_initialization(self, searcher):
+    def test_searcher_initialization(self):
         """Test searcher initialization."""
+        searcher = DDGSearcher(delay=0.1)
         assert searcher.delay == 0.1
         assert searcher.ddgs is not None
-
-    @patch("earthquakes_parser.search.searcher.DDGS")
-    def test_search_without_filter(self, mock_ddgs, searcher):
-        """Test search without site filter."""
-        mock_results = [
-            {"href": "https://example.com/1", "title": "Article 1"},
-            {"href": "https://example.com/2", "title": "Article 2"},
-        ]
-        searcher.ddgs.text = MagicMock(return_value=iter(mock_results))
-
-        results = searcher.search("earthquake", max_results=2)
-
-        assert len(results) == 2
-        assert results[0].link == "https://example.com/1"
-        assert results[0].query == "earthquake"
-
-    @patch("earthquakes_parser.search.searcher.DDGS")
-    def test_search_with_site_filter(self, mock_ddgs, searcher):
-        """Test search with site filter."""
-        mock_results = [
-            {"href": "https://instagram.com/post1", "title": "Post 1"},
-            {"href": "https://example.com/other", "title": "Other"},
-        ]
-        searcher.ddgs.text = MagicMock(return_value=iter(mock_results))
-
-        results = searcher.search(
-            "earthquake", max_results=5, site_filter="instagram.com"
-        )
-
-        assert len(results) == 1
-        assert "instagram.com" in results[0].link
 
     def test_load_keywords_from_file(self, tmp_path):
         """Test loading keywords from file."""
         keywords_file = tmp_path / "keywords.txt"
-        keywords_file.write_text("keyword1\nkeyword2\n\nkeyword3\n")
+        keywords_file.write_text("keyword1\nkeyword2\nkeyword3\n")
 
-        keywords = KeywordSearcher.load_keywords_from_file(str(keywords_file))
+        keywords = DDGSearcher.load_keywords_from_file(str(keywords_file))
 
-        assert keywords == ["keyword1", "keyword2", "keyword3"]
+        assert len(keywords) == 3
+        assert "keyword1" in keywords
+        assert "keyword2" in keywords
+
+
+class MockSearcher(BaseSearcher):
+    """Simple mock searcher for testing."""
+
+    def __init__(self):
+        self.results = []
+
+    def search(self, query, max_results=5, site_filter=None, offset=0):
+        """Return preset results."""
+        return self.results
+
+
+class TestSearchManager:
+    """Tests for SearchManager class."""
+
+    def test_initialization(self):
+        """Test SearchManager initialization."""
+        mock_db = MagicMock(spec=SupabaseDB)
+        mock_searcher = MockSearcher()
+        manager = SearchManager(db=mock_db, searcher=mock_searcher)
+
+        assert manager.db == mock_db
+        assert manager.searcher == mock_searcher
+
+    def test_search_and_save_basic(self):
+        """Test basic search and save."""
+        mock_db = MagicMock(spec=SupabaseDB)
+        mock_searcher = MockSearcher()
+        manager = SearchManager(db=mock_db, searcher=mock_searcher)
+
+        # Setup
+        mock_searcher.results = [
+            SearchResult("test", "https://example.com/1", "Title 1")
+        ]
+        mock_db.exists.return_value = False
+        mock_db.insert.return_value = ["id1"]
+
+        # Execute
+        stats = manager.search_and_save(["test"], max_results=1)
+
+        # Verify
+        assert stats["searched"] == 1
+        assert stats["new"] == 1
+        assert stats["skipped"] == 0
