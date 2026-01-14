@@ -2,8 +2,8 @@
 import json
 from typing import Optional
 
-from earthquakes_parser.storage.supabase.database import SupabaseDB
 from earthquakes_parser.parser.models import PageSchema
+from earthquakes_parser.storage.supabase.database import SupabaseDB
 
 
 class SchemaManager:

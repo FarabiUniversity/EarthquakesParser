@@ -254,10 +254,10 @@ if not result.main_text:
     # Re-extract schema
     schema = schema_extractor.extract_schema(html, title, domain)
     schema_manager.save(schema)
-    
+
     # Try again
     result = data_extractor.extract(html, schema)
-    
+
     if not result.main_text:
         mark_as(id, "failed")
 ```
@@ -273,11 +273,11 @@ if not result.main_text:
 
 ## Benefits
 
-✅ **Schema Caching** – Reuse schemas for same domain  
-✅ **Auto Recovery** – Re-extract schema on failure  
-✅ **Flexible Validation** – `main_text` required, `date` optional  
-✅ **Status Tracking** – Clear pipeline visibility  
-✅ **Modular Design** – Each component has single responsibility  
+✅ **Schema Caching** – Reuse schemas for same domain
+✅ **Auto Recovery** – Re-extract schema on failure
+✅ **Flexible Validation** – `main_text` required, `date` optional
+✅ **Status Tracking** – Clear pipeline visibility
+✅ **Modular Design** – Each component has single responsibility
 
 ## Performance Tips
 

@@ -3,14 +3,14 @@
 from typing import Optional
 from urllib.parse import urlparse
 
-from earthquakes_parser.search import GoogleSearcher, DDGSearcher
-from earthquakes_parser.storage.supabase.database import SupabaseDB
 from earthquakes_parser.parser.data_extractor import DataExtractor
 from earthquakes_parser.parser.models import ParsedContent
 from earthquakes_parser.parser.schema_extractor import SchemaExtractor
 from earthquakes_parser.parser.schema_manager import SchemaManager
-from earthquakes_parser.storage.supabase.file_storage import SupabaseFileStorage
+from earthquakes_parser.search import DDGSearcher, GoogleSearcher
 from earthquakes_parser.search.search_manager import SearchManager
+from earthquakes_parser.storage.supabase.database import SupabaseDB
+from earthquakes_parser.storage.supabase.file_storage import SupabaseFileStorage
 
 
 class ParserManager:
@@ -87,11 +87,11 @@ class ParserManager:
             return None
 
     def update_parsed_content(
-            self,
-            parsed_content_id: str,
-            main_text: Optional[list] = None,
-            date: Optional[str] = None,
-            page_schema_id: Optional[str] = None,
+        self,
+        parsed_content_id: str,
+        main_text: Optional[list] = None,
+        date: Optional[str] = None,
+        page_schema_id: Optional[str] = None,
     ) -> bool:
         """Update parsed content in database.
 
@@ -108,7 +108,11 @@ class ParserManager:
             self.db.update(
                 self.parsed_content_table,
                 record_id=parsed_content_id,  # UUID строки
-                data={"main_text": main_text, "date": date, "page_schema_id": page_schema_id},
+                data={
+                    "main_text": main_text,
+                    "date": date,
+                    "page_schema_id": page_schema_id,
+                },
             )
 
             return True
@@ -121,11 +125,19 @@ class ParserManager:
         search_results = self.db.select("search_results")
         parsed_results = self.db.select("parsed_content", filters={"status": None})
 
-        parsed_ids = set(parsed_results["search_result_id"].tolist()) if not parsed_results.empty else set()
+        parsed_ids = (
+            set(parsed_results["search_result_id"].tolist())
+            if not parsed_results.empty
+            else set()
+        )
 
         filtered = search_results[~search_results["id"].isin(parsed_ids)]
 
-        return list(filtered.head(limit).to_dict("records")) if limit else list(filtered.to_dict("records"))
+        return (
+            list(filtered.head(limit).to_dict("records"))
+            if limit
+            else list(filtered.to_dict("records"))
+        )
 
     def parse_record(
         self,

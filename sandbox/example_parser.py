@@ -3,7 +3,6 @@
 import sys
 from pathlib import Path
 from typing import Any
-from dotenv import load_dotenv
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -13,6 +12,7 @@ from earthquakes_parser.parser.parser_manager import ParserManager
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
 
 def main():
     load_dotenv()

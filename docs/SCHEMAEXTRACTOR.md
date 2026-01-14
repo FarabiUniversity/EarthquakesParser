@@ -384,18 +384,18 @@ if schema and schema.is_valid:
 
 ## Benefits
 
-✅ **Automatic Schema Generation** – No manual CSS selector writing  
-✅ **Page Validation** – Filters irrelevant content  
-✅ **Token Management** – Handles large HTML files  
-✅ **Flexible API Support** – Works with any OpenAI-compatible API  
-✅ **Robust Parsing** – Handles various GPT response formats  
+✅ **Automatic Schema Generation** – No manual CSS selector writing
+✅ **Page Validation** – Filters irrelevant content
+✅ **Token Management** – Handles large HTML files
+✅ **Flexible API Support** – Works with any OpenAI-compatible API
+✅ **Robust Parsing** – Handles various GPT response formats
 
 ## Limitations
 
-⚠️ **API Dependency** – Requires GPT access  
-⚠️ **Cost** – API calls have usage fees  
-⚠️ **Speed** – Slower than pre-defined schemas  
-⚠️ **Accuracy** – GPT may generate incorrect selectors  
+⚠️ **API Dependency** – Requires GPT access
+⚠️ **Cost** – API calls have usage fees
+⚠️ **Speed** – Slower than pre-defined schemas
+⚠️ **Accuracy** – GPT may generate incorrect selectors
 
 ## See Also
 

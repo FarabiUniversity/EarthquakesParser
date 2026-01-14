@@ -1,8 +1,0 @@
-{
-  "test": "insert_exists_get",
-  "collection": "it_single_b9acbcfe0a0848b490652506",
-  "id": "5067ec3e2bee4660bd312b84",
-  "content": "Hello",
-  "embedding_dim": 384,
-  "timestamp": "2026-01-07T14:55:48.547074+05:00"
-}

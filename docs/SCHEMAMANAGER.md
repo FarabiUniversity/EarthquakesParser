@@ -252,11 +252,11 @@ except Exception as e:
 
 ## Benefits
 
-✅ **Automatic Upsert** – No need to check existence before save  
-✅ **Domain Deduplication** – One schema per domain  
-✅ **JSON Parsing** – Handles array serialization transparently  
-✅ **Type Safety** – Returns `PageSchema` dataclass  
-✅ **Error Resilience** – Graceful failure handling  
+✅ **Automatic Upsert** – No need to check existence before save
+✅ **Domain Deduplication** – One schema per domain
+✅ **JSON Parsing** – Handles array serialization transparently
+✅ **Type Safety** – Returns `PageSchema` dataclass
+✅ **Error Resilience** – Graceful failure handling
 
 ## Integration
 

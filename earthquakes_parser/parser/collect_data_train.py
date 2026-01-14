@@ -1,17 +1,20 @@
 import json
+import os
 import re
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from openai import OpenAI
 from dateutil import parser as date_parser
-import os
+from openai import OpenAI
 
-client = OpenAI(base_url="http://192.168.8.22:9999/v1", api_key="api-key")  # Замените на ваш ключ
+client = OpenAI(
+    base_url="http://192.168.8.22:9999/v1", api_key="api-key"
+)  # Замените на ваш ключ
 
 # Загрузка CSV-файла
 df = pd.read_csv("sandbox/data/web_results.csv")
+
 
 def extract_json(text):
     match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
@@ -63,7 +66,7 @@ def count_tokens(text):
             "http://192.168.8.22:9999/extras/tokenize/count",
             headers={"Content-Type": "application/json"},
             json={"input": text},
-            timeout=10
+            timeout=10,
         )
         response.raise_for_status()
         return response.json().get("count", 0)
@@ -82,6 +85,7 @@ def fetch_html(url):
     except Exception as e:
         print(f"❌ Ошибка при загрузке {url}: {e}")
         return None
+
 
 def build_prompt(html, title):
     return f"""
@@ -102,14 +106,18 @@ Here is the HTML content:
 {html}
 """
 
+
 def analyze_html_with_openai(prompt):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant that extracts schema from HTML."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are a helpful assistant that extracts schema from HTML.",
+            },
+            {"role": "user", "content": prompt},
         ],
-        temperature=0.2
+        temperature=0.2,
     )
     return response.choices[0].message.content
 
@@ -122,9 +130,11 @@ def main():
             prompt = build_prompt(html, title)
             token_count = count_tokens(prompt)
             if token_count > 100000:
-                print(f"⚠️ Промт содержит {token_count} токенов. Обрезаем HTML до лимита.")
+                print(
+                    f"⚠️ Промт содержит {token_count} токенов. Обрезаем HTML до лимита."
+                )
                 max_chars = len(html) * (80000 / token_count)
-                html = html[:int(max_chars)]
+                html = html[: int(max_chars)]
                 prompt = build_prompt(html, title)
 
             print(f"\n🔍 Обработка: {title} ({link})")
