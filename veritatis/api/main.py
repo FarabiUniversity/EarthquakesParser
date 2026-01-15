@@ -1,4 +1,4 @@
-"""Main entry point for the veritatis API using FastAPI."""
+"""Main entry point for the veritatis API using FastAPI with relevance filtering."""
 
 from fastapi import FastAPI, Request, Body, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 from veritatis.vector_stores import MilvusRecordStore, ensure_connection, init_collections, ensure_collection_loaded
 from pymilvus.orm import utility
 from veritatis.embeddings import embedding_generator
+from veritatis.search import search_with_relevance_filter, RelevanceFilter
 from pymilvus import Collection
 
 _TIER1 = "veritatis_tier1_lake"
@@ -29,7 +30,7 @@ async def lifespan(app: FastAPI):
    global _store
    # Startup
    logger.info("Starting application initialization...")
-   
+
    try:
       logger.info("Connecting to Milvus...")
       ensure_connection()
@@ -37,14 +38,14 @@ async def lifespan(app: FastAPI):
       logger.info("Initializing collections...")
       init_collections()
       logger.info("Collections initialized")
-      
+
       logger.info("Creating MilvusRecordStore...")
       _store = MilvusRecordStore()
       logger.info("Milvus connected and collections initialized")
    except Exception as e:
       logger.warning(f"Milvus not available: {e}")
       logger.warning("API will start but vector operations will fail")
-   
+
    # Warm up embedding model (works without Milvus)
    logger.info("Warming up embedding model (this may take 5-10 seconds on first run)...")
    start_time = time.time()
@@ -55,7 +56,7 @@ async def lifespan(app: FastAPI):
    except Exception as e:
       logger.error(f"❌ Embedding model error: {e}")
       raise
-   
+
    logger.info("Application startup complete!")
    yield
    # Shutdown (if needed)
@@ -100,7 +101,7 @@ async def ingest(
    """Ingest a text record into Tier1 with embeddings and dedup by hash."""
    if _store is None:
       raise HTTPException(status_code=503, detail="Vector store not initialized. Check Milvus connection.")
-   
+
    normalized = " ".join(content.split()).strip()
    base = normalized + ("|" + source_url if source_url else "")
    record_id = hashlib.sha256(base.encode("utf-8")).hexdigest()
@@ -111,7 +112,7 @@ async def ingest(
 
    embedding = embedding_generator.embed(normalized)
    now_ms = int(time.time() * 1000)
-   
+
    record = {
       "id": record_id,
       "content": normalized,
@@ -129,16 +130,16 @@ async def ingest(
 
    return {"id": record_id, "status": "inserted", "collection": _TIER1}
 
-# --- Vector search endpoint ---
+# --- Vector search endpoint (legacy - no filtering) ---
 @app.post("/search")
 async def search(
    query: str = Body(..., embed=True),
    top_k: int = Body(10),
 ):
-   """Run a vector similarity search against Tier1."""
+   """Run a vector similarity search against Tier1 (no relevance filtering)."""
    if _store is None:
       raise HTTPException(status_code=503, detail="Vector store not initialized. Check Milvus connection.")
-   
+
    ensure_collection_loaded(_TIER1)
    vec = embedding_generator.embed(query)
    collection = Collection(_TIER1)
@@ -168,6 +169,74 @@ async def search(
       })
 
    return {"query": query, "top_k": top_k, "results": hits}
+
+# Smart search with relevance filtering
+@app.post("/search/relevant")
+async def search_relevant(
+   query: str = Body(..., embed=True),
+   top_k: int = Body(10),
+   relevance_threshold: Optional[float] = Body(None),
+   use_adaptive_threshold: bool = Body(False),
+   collection: str = Body(_TIER1),
+):
+   """
+   Run vector search with automatic relevance filtering.
+
+   Parameters:
+   - query: Search query text
+   - top_k: Number of results to retrieve before filtering
+   - relevance_threshold: Custom threshold (0.0-1.0). If None, uses default (0.5)
+   - use_adaptive_threshold: Calculate threshold from result distribution
+   - collection: Collection to search (default: tier1_lake)
+
+   Returns results with relevance scores and filtered/irrelevant results separately.
+   """
+   if _store is None:
+      raise HTTPException(status_code=503, detail="Vector store not initialized. Check Milvus connection.")
+
+   try:
+      response = search_with_relevance_filter(
+         collection_name=collection,
+         query=query,
+         top_k=top_k,
+         relevance_threshold=relevance_threshold,
+         use_adaptive_threshold=use_adaptive_threshold,
+      )
+      return response
+   except Exception as e:
+      logger.error(f"Search error: {e}")
+      return JSONResponse(status_code=500, content={"error": str(e)})
+
+# --- NEW: Get only highly relevant results ---
+@app.post("/search/strict")
+async def search_strict(
+   query: str = Body(..., embed=True),
+   top_k: int = Body(10),
+   collection: str = Body(_TIER1),
+):
+   """
+   Search with strict relevance filtering (threshold=0.7).
+   Returns only highly relevant results.
+   """
+   if _store is None:
+      raise HTTPException(status_code=503, detail="Vector store not initialized. Check Milvus connection.")
+
+   try:
+      response = search_with_relevance_filter(
+         collection_name=collection,
+         query=query,
+         top_k=top_k,
+         relevance_threshold=RelevanceFilter.STRICT_THRESHOLD,
+      )
+      return {
+         "query": query,
+         "threshold": response["threshold"],
+         "results": response["relevant_results"],
+         "filtered_count": response["irrelevant_count"],
+      }
+   except Exception as e:
+      logger.error(f"Strict search error: {e}")
+      return JSONResponse(status_code=500, content={"error": str(e)})
 
 # --- Error handler example ---
 @app.exception_handler(Exception)

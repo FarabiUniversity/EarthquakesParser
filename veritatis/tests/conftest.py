@@ -6,4 +6,105 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
 if str(root) not in sys.path:
-	sys.path.insert(0, str(root))
+    sys.path.insert(0, str(root))
+
+# Add test fixtures for relevance filtering tests
+import os
+import pytest
+import logging
+from pymilvus import utility, connections, FieldSchema, DataType
+from veritatis.vector_stores import (
+    ensure_connection,
+    create_collection_if_not_exists,
+    MilvusRecordStore,
+)
+
+# Configure logging for tests
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Set environment variable to skip connection for unit tests that don't need Milvus
+os.environ.setdefault("MILVUS_SKIP_CONNECT", "false")
+
+
+def pytest_configure(config):
+    """Register custom markers."""
+    config.addinivalue_line(
+        "markers", "integration: mark test as integration test requiring Milvus"
+    )
+
+
+@pytest.fixture(scope="session")
+def milvus_connection():
+    """Establish Milvus connection for integration tests."""
+    try:
+        ensure_connection()
+        logger.info("✅ Milvus connection established for tests")
+        yield
+        # Cleanup after all tests
+        try:
+            connections.disconnect("default")
+            logger.info("🔌 Milvus connection closed")
+        except Exception as e:
+            logger.warning(f"Error disconnecting from Milvus: {e}")
+    except Exception as e:
+        logger.error(f"❌ Failed to connect to Milvus: {e}")
+        pytest.skip(f"Milvus not available: {e}")
+
+
+@pytest.fixture(scope="function")
+def test_collection(milvus_connection):
+    """
+    Create a temporary test collection for integration tests.
+    Automatically cleans up after each test.
+    """
+    collection_name = "test_relevance_collection"
+
+    # Clean up any existing test collection
+    if utility.has_collection(collection_name):
+        utility.drop_collection(collection_name)
+        logger.info(f"🧹 Dropped existing test collection '{collection_name}'")
+
+    # Define schema for test collection (same as tier1)
+    fields = [
+        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
+        FieldSchema(name="source_url", dtype=DataType.VARCHAR, max_length=500),
+        FieldSchema(name="credibility_score", dtype=DataType.FLOAT),
+        FieldSchema(name="ingested_timestamp", dtype=DataType.INT64),
+        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
+    ]
+
+    index_params = {
+        "index_type": "HNSW",
+        "metric_type": "COSINE",
+        "params": {"M": 16, "efConstruction": 100},  # Smaller params for faster test setup
+    }
+
+    # Create test collection
+    logger.info(f"🆕 Creating test collection '{collection_name}'")
+    collection = create_collection_if_not_exists(
+        collection_name,
+        fields,
+        "Test collection for relevance filtering tests",
+        index_params,
+    )
+
+    logger.info(f"✅ Test collection '{collection_name}' ready")
+
+    yield collection_name
+
+    # Cleanup after test
+    try:
+        if utility.has_collection(collection_name):
+            utility.drop_collection(collection_name)
+            logger.info(f"🧹 Cleaned up test collection '{collection_name}'")
+    except Exception as e:
+        logger.warning(f"Error cleaning up test collection: {e}")
+
+
+@pytest.fixture
+def record_store(milvus_connection):
+    """Provide a MilvusRecordStore instance for tests."""
+    return MilvusRecordStore()
