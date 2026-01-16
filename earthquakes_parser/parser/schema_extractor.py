@@ -50,7 +50,8 @@ class SchemaExtractor:
                 timeout=10,
             )
             response.raise_for_status()
-            return response.json().get("count", 0)
+            result: int = int(response.json().get("count", 0))
+            return result
         except Exception as e:
             print(f"⚠️ Error counting tokens: {e}")
             return 0
@@ -66,17 +67,26 @@ class SchemaExtractor:
             Formatted prompt.
         """
         return f"""
-You are given the full HTML content of a webpage titled "{title}". Your task is to analyze the structure and return a JSON object in the following format:
+You are given the full HTML content of a webpage titled "{title}". Your task \
+is to analyze the structure and return a JSON object in the following format:
 
 {{
   "schema": {{
-    "main_text": ["CSS-like selectors pointing to the main content blocks, such as paragraphs or article sections. Each selector should isolate a meaningful unit of text, like a paragraph, article body, or section. Avoid selectors that include navigation, footers, sidebars, references, or link lists."],
-    "date": "CSS-like selector pointing to the element that contains the publication or last updated date. Prefer metadata or footer elements with clear date formatting."
+    "main_text": ["CSS-like selectors pointing to the main content blocks, \
+such as paragraphs or article sections. Each selector should isolate a \
+meaningful unit of text, like a paragraph, article body, or section. Avoid \
+selectors that include navigation, footers, sidebars, references, or link \
+lists."],
+    "date": "CSS-like selector pointing to the element that contains the \
+publication or last updated date. Prefer metadata or footer elements with \
+clear date formatting."
   }},
-  "is_valid": true if the page is about earthquakes or closely related topics, false otherwise
+  "is_valid": true if the page is about earthquakes or closely related topics, \
+false otherwise
 }}
 
-⚠️ Important: Do not return anything except the JSON object wrapped in triple backticks like this:
+⚠️ Important: Do not return anything except the JSON object wrapped in triple \
+backticks like this:
 ```json
 {{...}}
 ```
@@ -97,7 +107,8 @@ Here is the HTML content:
         match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
         if match:
             try:
-                return json.loads(match.group(1))
+                result_dict: dict = json.loads(match.group(1))
+                return result_dict
             except json.JSONDecodeError as e:
                 print(f"❌ JSON parsing error: {e}")
         return None
@@ -149,7 +160,10 @@ Here is the HTML content:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a helpful assistant that extracts schema from HTML.",
+                        "content": (
+                            "You are a helpful assistant that extracts "
+                            "schema from HTML."
+                        ),
                     },
                     {"role": "user", "content": prompt},
                 ],
@@ -160,7 +174,7 @@ Here is the HTML content:
             result = self._extract_json(result_text)
 
             if not result:
-                print(f"❌ Failed to extract JSON from response")
+                print("Failed to extract JSON from response")
                 return None
 
             print(f"📄 GPT Response:\n{result}")

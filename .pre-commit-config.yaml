@@ -86,7 +86,7 @@ repos:
       - id: detect-secrets
         name: Detect secrets
         args: ['--baseline', '.secrets.baseline']
-        exclude: package.lock.json
+        exclude: (package.lock.json|veritatis/artifacts/.*\.json)
 
   # Commit message validation
   - repo: https://github.com/compilerla/conventional-pre-commit

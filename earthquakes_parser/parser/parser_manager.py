@@ -3,14 +3,12 @@
 from typing import Optional
 from urllib.parse import urlparse
 
-from earthquakes_parser.search import GoogleSearcher, DDGSearcher
-from earthquakes_parser.storage.supabase.database import SupabaseDB
 from earthquakes_parser.parser.data_extractor import DataExtractor
 from earthquakes_parser.parser.models import ParsedContent
 from earthquakes_parser.parser.schema_extractor import SchemaExtractor
 from earthquakes_parser.parser.schema_manager import SchemaManager
+from earthquakes_parser.storage.supabase.database import SupabaseDB
 from earthquakes_parser.storage.supabase.file_storage import SupabaseFileStorage
-from earthquakes_parser.search.search_manager import SearchManager
 
 
 class ParserManager:
@@ -55,7 +53,7 @@ class ParserManager:
         search_result_id: str,
         main_text: list,
         date: Optional[str],
-        page_schema_id: Optional[str],
+        page_schema_id: Optional[str] = None,
     ) -> Optional[str]:
         """Save parsed content to database.
 
@@ -87,11 +85,11 @@ class ParserManager:
             return None
 
     def update_parsed_content(
-            self,
-            parsed_content_id: str,
-            main_text: Optional[list] = None,
-            date: Optional[str] = None,
-            page_schema_id: Optional[str] = None,
+        self,
+        parsed_content_id: str,
+        main_text: Optional[list] = None,
+        date: Optional[str] = None,
+        page_schema_id: Optional[str] = None,
     ) -> bool:
         """Update parsed content in database.
 
@@ -108,7 +106,11 @@ class ParserManager:
             self.db.update(
                 self.parsed_content_table,
                 record_id=parsed_content_id,  # UUID строки
-                data={"main_text": main_text, "date": date, "page_schema_id": page_schema_id},
+                data={
+                    "main_text": main_text,
+                    "date": date,
+                    "page_schema_id": page_schema_id,
+                },
             )
 
             return True
@@ -121,11 +123,19 @@ class ParserManager:
         search_results = self.db.select("search_results")
         parsed_results = self.db.select("parsed_content", filters={"status": None})
 
-        parsed_ids = set(parsed_results["search_result_id"].tolist()) if not parsed_results.empty else set()
+        parsed_ids = (
+            set(parsed_results["search_result_id"].tolist())
+            if not parsed_results.empty
+            else set()
+        )
 
         filtered = search_results[~search_results["id"].isin(parsed_ids)]
 
-        return list(filtered.head(limit).to_dict("records")) if limit else list(filtered.to_dict("records"))
+        return (
+            list(filtered.head(limit).to_dict("records"))
+            if limit
+            else list(filtered.to_dict("records"))
+        )
 
     def parse_record(
         self,
@@ -153,6 +163,10 @@ class ParserManager:
             page_schema_id=None,
         )
 
+        if not parsed_content_id:
+            print("❌ Failed to create parsed content record")
+            return False
+
         domain = self._get_domain(url)
 
         print(f"\n{'='*100}")
@@ -163,13 +177,13 @@ class ParserManager:
 
         # Step 1: Download HTML from storage
         if not html_storage_path:
-            print(f"❌ No HTML storage path for this record")
+            print("❌ No HTML storage path for this record")
             self.mark_as(parsed_content_id, "failed")
             return False
 
         html = self.file_storage.download(html_storage_path)
         if not html:
-            print(f"❌ Failed to download HTML from storage")
+            print("❌ Failed to download HTML from storage")
             self.mark_as(parsed_content_id, "failed")
             return False
 
@@ -201,7 +215,7 @@ class ParserManager:
 
         # Check if page is valid
         if not schema.is_valid:
-            print(f"⚠️ Page is not about earthquakes, skipping...")
+            print("⚠️ Page is not about earthquakes, skipping...")
             self.mark_as(parsed_content_id, "failed")
             return False
 
@@ -211,19 +225,19 @@ class ParserManager:
         # Step 4: Check if extraction was successful
         # Failed only if main_text is empty (date can be None)
         if not result.main_text:
-            print(f"⚠️ Extraction failed (main_text empty), re-extracting schema...")
+            print("⚠️ Extraction failed (main_text empty), " "re-extracting schema...")
 
             # Re-extract schema
             schema = self.schema_extractor.extract_schema(html, title, domain)
             if not schema:
-                print(f"❌ Failed to re-extract schema")
+                print("❌ Failed to re-extract schema")
                 self.mark_as(parsed_content_id, "failed")
                 return False
 
             # Save updated schema
             schema_id = self.schema_manager.save(schema)
             if not schema_id:
-                print(f"❌ Failed to save re-extracted schema")
+                print("❌ Failed to save re-extracted schema")
                 self.mark_as(parsed_content_id, "failed")
                 return False
 
@@ -233,7 +247,7 @@ class ParserManager:
             result = self.data_extractor.extract(html, schema)
 
             if not result.main_text:
-                print(f"❌ Re-extraction also failed, marking as failed...")
+                print("❌ Re-extraction also failed, marking as failed...")
                 self.mark_as(parsed_content_id, "failed")
                 return False
 
@@ -253,7 +267,7 @@ class ParserManager:
             self.mark_as(parsed_content_id, "parsed")
             return True
         else:
-            print(f"❌ Failed to save content")
+            print("❌ Failed to save content")
             self.mark_as(parsed_content_id, "failed")
             return False
 
@@ -266,7 +280,7 @@ class ParserManager:
         Returns:
             Dictionary with statistics.
         """
-        print(f"📥 Loading downloaded search results from database...")
+        print("📥 Loading downloaded search results from database...")
 
         # Get records with status='downloaded'
         records = self.get_search_results(limit=limit)
@@ -299,11 +313,12 @@ class ParserManager:
                 # Mark as failed in DB
                 try:
                     self.mark_as(str(record["id"]), "failed")
-                except:
+                except Exception:  # nosec B110
+                    # Silently ignore marking errors during cleanup
                     pass
 
         print(f"\n{'='*100}")
-        print(f"📊 Parsing complete:")
+        print("📊 Parsing complete:")
         print(f"   Total: {stats['total']}")
         print(f"   ✅ Successful: {stats['successful']}")
         print(f"   ❌ Failed: {stats['failed']}")

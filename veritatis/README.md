@@ -81,7 +81,7 @@ poetry run pytest -q tests/test_vector_store_unit.py
 poetry run pytest -q tests/test_embeddings.py --junitxml=artifacts/embeddings_junit.xml
 ```
 
- 
+
 
 ### Milvus Connectivity
 

@@ -1,23 +1,23 @@
 """Pytest configuration and shared test setup."""
 
 # Ensure project root (containing the 'veritatis' package) is on sys.path for tests.
+import logging
+import os
 import sys
 from pathlib import Path
+
+import pytest  # noqa: E402
+from pymilvus import DataType, FieldSchema, connections, utility  # noqa: E402
+
+from veritatis.vector_stores import (  # noqa: E402
+    MilvusRecordStore,
+    create_collection_if_not_exists,
+    ensure_connection,
+)
 
 root = Path(__file__).resolve().parent.parent
 if str(root) not in sys.path:
     sys.path.insert(0, str(root))
-
-# Add test fixtures for relevance filtering tests
-import os
-import pytest
-import logging
-from pymilvus import utility, connections, FieldSchema, DataType
-from veritatis.vector_stores import (
-    ensure_connection,
-    create_collection_if_not_exists,
-    MilvusRecordStore,
-)
 
 # Configure logging for tests
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +56,7 @@ def milvus_connection():
 def test_collection(milvus_connection):
     """
     Create a temporary test collection for integration tests.
+
     Automatically cleans up after each test.
     """
     collection_name = "test_relevance_collection"
@@ -79,12 +80,15 @@ def test_collection(milvus_connection):
     index_params = {
         "index_type": "HNSW",
         "metric_type": "COSINE",
-        "params": {"M": 16, "efConstruction": 100},  # Smaller params for faster test setup
+        "params": {
+            "M": 16,
+            "efConstruction": 100,
+        },  # Smaller params for faster test setup
     }
 
     # Create test collection
     logger.info(f"🆕 Creating test collection '{collection_name}'")
-    collection = create_collection_if_not_exists(
+    create_collection_if_not_exists(
         collection_name,
         fields,
         "Test collection for relevance filtering tests",

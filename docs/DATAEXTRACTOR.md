@@ -408,17 +408,17 @@ if result.success:
 
 ## Benefits
 
-✅ **Clean Text Extraction** – `strip=True` removes whitespace  
-✅ **Flexible Date Parsing** – Handles various formats  
-✅ **Error Resilience** – Invalid selectors don't crash  
-✅ **Optional Date** – Content extraction succeeds without date  
-✅ **Validation Logic** – Clear success criteria  
+✅ **Clean Text Extraction** – `strip=True` removes whitespace
+✅ **Flexible Date Parsing** – Handles various formats
+✅ **Error Resilience** – Invalid selectors don't crash
+✅ **Optional Date** – Content extraction succeeds without date
+✅ **Validation Logic** – Clear success criteria
 
 ## Limitations
 
-⚠️ **JavaScript Content** – Only parses static HTML  
-⚠️ **Dynamic Loading** – Can't handle lazy-loaded content  
-⚠️ **Attribute Values** – Doesn't extract meta content, only visible text  
+⚠️ **JavaScript Content** – Only parses static HTML
+⚠️ **Dynamic Loading** – Can't handle lazy-loaded content
+⚠️ **Attribute Values** – Doesn't extract meta content, only visible text
 
 ## Common Issues
 

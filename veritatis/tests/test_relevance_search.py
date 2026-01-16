@@ -1,15 +1,17 @@
 """Tests for relevance-based search filtering."""
 
+import time
+
 import pytest
+
+from veritatis.embeddings import embedding_generator
 from veritatis.search import (
     RelevanceFilter,
     SearchResult,
-    search_with_relevance_filter,
     search_embeddings,
+    search_with_relevance_filter,
 )
 from veritatis.vector_stores import MilvusRecordStore
-from veritatis.embeddings import embedding_generator
-import time
 
 
 @pytest.fixture
@@ -75,8 +77,7 @@ class TestRelevanceFilter:
     def test_filter_with_default_threshold(self, sample_search_results):
         """Test filtering with default threshold (0.5)."""
         relevant, irrelevant = RelevanceFilter.filter_by_threshold(
-            sample_search_results,
-            RelevanceFilter.DEFAULT_THRESHOLD
+            sample_search_results, RelevanceFilter.DEFAULT_THRESHOLD
         )
 
         assert len(relevant) == 3  # Scores: 0.85, 0.78, 0.55
@@ -95,8 +96,7 @@ class TestRelevanceFilter:
     def test_filter_with_strict_threshold(self, sample_search_results):
         """Test filtering with strict threshold (0.7)."""
         relevant, irrelevant = RelevanceFilter.filter_by_threshold(
-            sample_search_results,
-            RelevanceFilter.STRICT_THRESHOLD
+            sample_search_results, RelevanceFilter.STRICT_THRESHOLD
         )
 
         assert len(relevant) == 2  # Scores: 0.85, 0.78
@@ -108,8 +108,7 @@ class TestRelevanceFilter:
     def test_filter_with_lenient_threshold(self, sample_search_results):
         """Test filtering with lenient threshold (0.3)."""
         relevant, irrelevant = RelevanceFilter.filter_by_threshold(
-            sample_search_results,
-            RelevanceFilter.LENIENT_THRESHOLD
+            sample_search_results, RelevanceFilter.LENIENT_THRESHOLD
         )
 
         assert len(relevant) == 4  # Scores: 0.85, 0.78, 0.55, 0.35
@@ -130,12 +129,16 @@ class TestRelevanceFilter:
         scores = [0.85, 0.78, 0.55, 0.35, 0.15]
         mean = sum(scores) / len(scores)  # 0.536
         variance = sum((s - mean) ** 2 for s in scores) / len(scores)
-        std_dev = variance ** 0.5  # ~0.277
+        std_dev = variance**0.5  # ~0.277
 
         expected = mean + (0.5 * std_dev)  # ~0.675
 
         # Should be clamped between lenient and strict
-        assert RelevanceFilter.LENIENT_THRESHOLD <= threshold <= RelevanceFilter.STRICT_THRESHOLD
+        assert (
+            RelevanceFilter.LENIENT_THRESHOLD
+            <= threshold
+            <= RelevanceFilter.STRICT_THRESHOLD
+        )
         assert abs(threshold - expected) < 0.01  # Close to calculated value
 
     def test_adaptive_threshold_with_uniform_scores(self):
@@ -174,7 +177,9 @@ class TestSearchWithRelevanceFilter:
             {
                 "id": "climate_1",
                 "content": "Climate change is causing global temperature rise",
-                "embedding": embedding_generator.embed("Climate change is causing global temperature rise"),
+                "embedding": embedding_generator.embed(
+                    "Climate change is causing global temperature rise"
+                ),
                 "source_url": "https://climate.com/1",
                 "credibility_score": 0.9,
                 "ingested_timestamp": int(time.time() * 1000),
@@ -183,7 +188,9 @@ class TestSearchWithRelevanceFilter:
             {
                 "id": "climate_2",
                 "content": "Greenhouse gases trap heat in the atmosphere",
-                "embedding": embedding_generator.embed("Greenhouse gases trap heat in the atmosphere"),
+                "embedding": embedding_generator.embed(
+                    "Greenhouse gases trap heat in the atmosphere"
+                ),
                 "source_url": "https://climate.com/2",
                 "credibility_score": 0.85,
                 "ingested_timestamp": int(time.time() * 1000),
@@ -192,7 +199,9 @@ class TestSearchWithRelevanceFilter:
             {
                 "id": "weather_1",
                 "content": "Today's weather forecast shows rain",
-                "embedding": embedding_generator.embed("Today's weather forecast shows rain"),
+                "embedding": embedding_generator.embed(
+                    "Today's weather forecast shows rain"
+                ),
                 "source_url": "https://weather.com/1",
                 "credibility_score": 0.7,
                 "ingested_timestamp": int(time.time() * 1000),
@@ -201,7 +210,9 @@ class TestSearchWithRelevanceFilter:
             {
                 "id": "unrelated_1",
                 "content": "Python is a programming language",
-                "embedding": embedding_generator.embed("Python is a programming language"),
+                "embedding": embedding_generator.embed(
+                    "Python is a programming language"
+                ),
                 "source_url": "https://python.org",
                 "credibility_score": 0.8,
                 "ingested_timestamp": int(time.time() * 1000),
@@ -223,7 +234,10 @@ class TestSearchWithRelevanceFilter:
         assert result["threshold"] == RelevanceFilter.DEFAULT_THRESHOLD
         assert result["threshold_type"] == "default"
         assert result["total_results"] > 0
-        assert result["relevant_count"] + result["irrelevant_count"] == result["total_results"]
+        assert (
+            result["relevant_count"] + result["irrelevant_count"]
+            == result["total_results"]
+        )
 
         # Climate-related results should be relevant
         relevant_ids = [r["id"] for r in result["relevant_results"]]
@@ -255,7 +269,11 @@ class TestSearchWithRelevanceFilter:
         )
 
         assert result["threshold_type"] == "adaptive"
-        assert RelevanceFilter.LENIENT_THRESHOLD <= result["threshold"] <= RelevanceFilter.STRICT_THRESHOLD
+        assert (
+            RelevanceFilter.LENIENT_THRESHOLD
+            <= result["threshold"]
+            <= RelevanceFilter.STRICT_THRESHOLD
+        )
 
         # Adaptive threshold should filter out clearly irrelevant results
         assert result["irrelevant_count"] > 0

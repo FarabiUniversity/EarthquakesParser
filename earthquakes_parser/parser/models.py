@@ -34,7 +34,7 @@ class ParsedContent:
     search_result_id: str
     main_text: List[str]
     date: Optional[str]
-    page_schema_id: str
+    page_schema_id: Optional[str] = None
     parsed_at: Optional[datetime] = None
     id: Optional[str] = None
 

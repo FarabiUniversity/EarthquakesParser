@@ -10,7 +10,7 @@ curl -s -X POST http://localhost:8000/ingest \
 """
 
 out: """
-{"id":"f953da113cb3cebb8597ed8d3f8d8125ee6367c3f97bd8b93d084fd830ccb775","status":"duplicate","collection":"veritatis_tier1_lake"}
+{"id":"f953da113cb3cebb8597ed8d3f8d8125ee6367c3f97bd8b93d084fd830ccb775","status":"duplicate","collection":"veritatis_tier1_lake"}  # pragma: allowlist secret
 """
 
 Now let's search for it: """
@@ -18,7 +18,7 @@ curl -X POST "http://localhost:8000/search" -H "Content-Type: application/json" 
 """
 
 out:"""
-{"query":"Almaty Earthquake","top_k":3,"results":[{"id":"f953da113cb3cebb8597ed8d3f8d8125ee6367c3f97bd8b93d084fd830ccb775","content":"Magnitude 5.2 earthquake reported near Almaty, Kazakhstan. Preliminary depth 10 km.","source_url":"https://example.com/news/almaty-quake-1","credibility_score":0.0,"ingested_timestamp":1767742397288,"supabase_id":"","distance":0.7740042209625244}]}%  
+{"query":"Almaty Earthquake","top_k":3,"results":[{"id":"f953da113cb3cebb8597ed8d3f8d8125ee6367c3f97bd8b93d084fd830ccb775","content":"Magnitude 5.2 earthquake reported near Almaty, Kazakhstan. Preliminary depth 10 km.","source_url":"https://example.com/news/almaty-quake-1","credibility_score":0.0,"ingested_timestamp":1767742397288,"supabase_id":"","distance":0.7740042209625244}]}%  # pragma: allowlist secret
 """
 
 """
@@ -26,7 +26,7 @@ yelnur@MacBook-Air-Yelnur veritatis % curl -X POST "http://localhost:8000/search
 
 >>>>>>
 
-{"query":"Drunken Sailor","top_k":3,"results":[{"id":"f953da113cb3cebb8597ed8d3f8d8125ee6367c3f97bd8b93d084fd830ccb775","content":"Magnitude 5.2 earthquake reported near Almaty, Kazakhstan. Preliminary depth 10 km.","source_url":"https://example.com/news/almaty-quake-1","credibility_score":0.0,"ingested_timestamp":1767742397288,"supabase_id":"","distance":-0.07328087091445923}]}% 
+{"query":"Drunken Sailor","top_k":3,"results":[{"id":"f953da113cb3cebb8597ed8d3f8d8125ee6367c3f97bd8b93d084fd830ccb775","content":"Magnitude 5.2 earthquake reported near Almaty, Kazakhstan. Preliminary depth 10 km.","source_url":"https://example.com/news/almaty-quake-1","credibility_score":0.0,"ingested_timestamp":1767742397288,"supabase_id":"","distance":-0.07328087091445923}]}%  # pragma: allowlist secret
 """
 test embeddings using: "poetry run pytest -q tests/test_embeddings.py"
 

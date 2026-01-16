@@ -5,11 +5,12 @@ This module adds relevance threshold filtering to vector search results,
 keeping only embeddings that meet minimum similarity requirements.
 """
 
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 from pymilvus import Collection
+
 from veritatis.embeddings import embedding_generator
 from veritatis.vector_stores import ensure_collection_loaded
 
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SearchResult:
     """Container for a single search result with metadata."""
+
     id: str
     content: str
     source_url: str
@@ -40,8 +42,7 @@ class RelevanceFilter:
 
     @staticmethod
     def filter_by_threshold(
-            results: List[SearchResult],
-            threshold: float = DEFAULT_THRESHOLD
+        results: List[SearchResult], threshold: float = DEFAULT_THRESHOLD
     ) -> tuple[List[SearchResult], List[SearchResult]]:
         """
         Split results into relevant and irrelevant based on threshold.
@@ -88,7 +89,7 @@ class RelevanceFilter:
 
         # Calculate standard deviation
         variance = sum((s - mean_score) ** 2 for s in scores) / len(scores)
-        std_dev = variance ** 0.5
+        std_dev = variance**0.5
 
         # Adaptive threshold: mean + 0.5*stddev
         adaptive_threshold = mean_score + (0.5 * std_dev)
@@ -96,7 +97,7 @@ class RelevanceFilter:
         # Clamp between lenient and strict thresholds
         threshold = max(
             RelevanceFilter.LENIENT_THRESHOLD,
-            min(adaptive_threshold, RelevanceFilter.STRICT_THRESHOLD)
+            min(adaptive_threshold, RelevanceFilter.STRICT_THRESHOLD),
         )
 
         logger.info(
@@ -104,15 +105,16 @@ class RelevanceFilter:
             f"(mean={mean_score:.3f}, std={std_dev:.3f})"
         )
 
-        return threshold
+        result: float = float(threshold)
+        return result
 
 
 def search_with_relevance_filter(
-        collection_name: str,
-        query: str,
-        top_k: int = 10,
-        relevance_threshold: Optional[float] = None,
-        use_adaptive_threshold: bool = False,
+    collection_name: str,
+    query: str,
+    top_k: int = 10,
+    relevance_threshold: Optional[float] = None,
+    use_adaptive_threshold: bool = False,
 ) -> Dict[str, Any]:
     """
     Perform vector search with automatic relevance filtering.
@@ -136,10 +138,7 @@ def search_with_relevance_filter(
     ensure_collection_loaded(collection_name)
     collection = Collection(collection_name)
 
-    search_params = {
-        "metric_type": "COSINE",
-        "params": {"ef": 128}
-    }
+    search_params = {"metric_type": "COSINE", "params": {"ef": 128}}
 
     search_results = collection.search(
         data=[query_embedding],
@@ -147,8 +146,12 @@ def search_with_relevance_filter(
         param=search_params,
         limit=top_k,
         output_fields=[
-            "id", "content", "source_url", "credibility_score",
-            "ingested_timestamp", "supabase_id"
+            "id",
+            "content",
+            "source_url",
+            "credibility_score",
+            "ingested_timestamp",
+            "supabase_id",
         ],
     )
 
@@ -157,13 +160,13 @@ def search_with_relevance_filter(
     for hit in search_results[0]:
         result = SearchResult(
             id=str(hit.id),
-            content=str(getattr(hit, 'content', '')),
-            source_url=str(getattr(hit, 'source_url', '')),
-            credibility_score=float(getattr(hit, 'credibility_score', 0.0)),
-            ingested_timestamp=int(getattr(hit, 'ingested_timestamp', 0)),
-            supabase_id=str(getattr(hit, 'supabase_id', '')),
+            content=str(getattr(hit, "content", "")),
+            source_url=str(getattr(hit, "source_url", "")),
+            credibility_score=float(getattr(hit, "credibility_score", 0.0)),
+            ingested_timestamp=int(getattr(hit, "ingested_timestamp", 0)),
+            supabase_id=str(getattr(hit, "supabase_id", "")),
             similarity_score=float(hit.distance),
-            is_relevant=False  # Will be set by filter
+            is_relevant=False,  # Will be set by filter
         )
         all_results.append(result)
 
@@ -186,8 +189,10 @@ def search_with_relevance_filter(
         "top_k": top_k,
         "threshold": threshold,
         "threshold_type": (
-            "adaptive" if use_adaptive_threshold
-            else "custom" if relevance_threshold is not None
+            "adaptive"
+            if use_adaptive_threshold
+            else "custom"
+            if relevance_threshold is not None
             else "default"
         ),
         "total_results": len(all_results),
@@ -209,7 +214,9 @@ def search_with_relevance_filter(
             {
                 "id": r.id,
                 "similarity_score": r.similarity_score,
-                "reason": f"Below threshold ({r.similarity_score:.3f} < {threshold:.3f})"
+                "reason": (
+                    f"Below threshold " f"({r.similarity_score:.3f} < {threshold:.3f})"
+                ),
             }
             for r in irrelevant_results
         ],
@@ -218,13 +225,13 @@ def search_with_relevance_filter(
 
 # Convenience function for backward compatibility
 def search_embeddings(
-        collection_name: str,
-        query: str,
-        top_k: int = 10,
-        min_relevance: float = RelevanceFilter.DEFAULT_THRESHOLD,
+    collection_name: str,
+    query: str,
+    top_k: int = 10,
+    min_relevance: float = RelevanceFilter.DEFAULT_THRESHOLD,
 ) -> List[Dict[str, Any]]:
     """
-    Simple interface that returns only relevant results.
+    Return only relevant results filtered by threshold.
 
     Returns:
         List of relevant results only (filtered by threshold)
@@ -236,4 +243,5 @@ def search_embeddings(
         relevance_threshold=min_relevance,
     )
 
-    return response["relevant_results"]
+    result: list[dict[str, Any]] = response["relevant_results"]
+    return result

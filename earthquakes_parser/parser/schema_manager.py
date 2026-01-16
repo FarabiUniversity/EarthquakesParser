@@ -2,8 +2,8 @@
 import json
 from typing import Optional
 
-from earthquakes_parser.storage.supabase.database import SupabaseDB
 from earthquakes_parser.parser.models import PageSchema
+from earthquakes_parser.storage.supabase.database import SupabaseDB
 
 
 class SchemaManager:
@@ -66,12 +66,13 @@ class SchemaManager:
 
             if existing:
                 # Update existing
+                schema_id = existing.id if existing.id else ""
                 updated = self.db.update(
                     self.table,
-                    existing.id,
+                    schema_id,
                     schema.to_dict(),
                 )
-                return existing.id if updated else None
+                return schema_id if updated else None
             else:
                 # Insert new
                 inserted_ids = self.db.insert(
