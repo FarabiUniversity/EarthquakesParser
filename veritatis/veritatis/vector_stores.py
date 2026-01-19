@@ -4,10 +4,10 @@ import logging
 import math
 import os
 import time
-from typing import Any, Dict, Iterable, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from dotenv import load_dotenv
-from pymilvus import (
+from pymilvus import (  # noqa: E402
     Collection,
     CollectionSchema,
     DataType,
@@ -16,7 +16,7 @@ from pymilvus import (
     connections,
     utility,
 )
-from pymilvus.client.types import LoadState
+from pymilvus.client.types import LoadState  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,10 @@ ENV = os.getenv("ENV", "development")
 if ENV == "development":
     load_dotenv()
 
+
+MILVUS_SKIP_CONNECT = os.getenv("MILVUS_SKIP_CONNECT", "false").lower() == "true"
 MILVUS_RECREATE_ON_STARTUP = (
-    os.getenv("MILVUS_RECREATE_ON_STARTUP", "false").lower() == "true"
+    os.getenv("MILVUS_RECREATE_ON_STARTUP", "true").lower() == "true"
 )
 MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
 MILVUS_PORT = int(os.getenv("MILVUS_PORT", "19530"))
@@ -46,7 +48,7 @@ def _field_signature(field: FieldSchema) -> Dict[str, Any]:
     return sig
 
 
-def _schema_signature(fields: Iterable[FieldSchema]) -> list[Dict[str, Any]]:
+def _schema_signature(fields: Iterable[FieldSchema]) -> List[Dict[str, Any]]:
     """Build a stable schema signature for comparison/debugging."""
     return [_field_signature(f) for f in fields]
 
@@ -65,11 +67,12 @@ def _ensure_collection_schema_matches(
     expected_sig = _schema_signature(list(expected_fields))
     if existing_sig != expected_sig:
         raise ValueError(
-            "Existing collection schema does not match expected schema. "
-            f"collection={name}. "
-            "Volumes may contain old state created by a different schema. "
-            "Fix by wiping volumes or setting MILVUS_RECREATE_ON_STARTUP=true. "
-            f"existing={existing_sig} expected={expected_sig}"
+            "Existing Milvus collection schema does not match expected "
+            f"schema. collection={name}. This usually means your Milvus "
+            "volumes contain old state created by a different schema. "
+            "Fix by wiping volumes or setting "
+            f"MILVUS_RECREATE_ON_STARTUP=true. existing={existing_sig} "
+            f"expected={expected_sig}"
         )
 
 
@@ -140,11 +143,10 @@ def validate_record_against_collection_schema(
         # Milvus requires all fields we insert; we already enforce presence elsewhere.
         value = row[field.name]
         if field.dtype == DataType.FLOAT_VECTOR:
-            dim = int(field.params.get("dim") or getattr(field, "dim", 0))
             _validate_vector_value(
                 field.name,
                 value,
-                dim=dim,
+                dim=int(field.params.get("dim") or getattr(field, "dim", 0)),
             )
         else:
             _validate_scalar_value(
@@ -156,10 +158,12 @@ def validate_record_against_collection_schema(
 
 
 def ensure_connection() -> None:
-    """Establish a connection to Milvus if not already connected.
+    """Establish a connection to Milvus if not already connected and not skipped.
 
     Avoids importing-time connection attempts which crash when Milvus isn't ready.
     """
+    if MILVUS_SKIP_CONNECT:
+        return
     try:
         connections.connect(
             alias="default",
@@ -198,13 +202,17 @@ def wait_for_collection_ready(name, timeout=60):
             # state is Loading → sleep briefly and check again
             time.sleep(0.1)
         except Exception:
-            # Sometimes Milvus isn’t fully initialized yet
+            # Sometimes Milvus isn't fully initialized yet
             time.sleep(0.1)
     raise TimeoutError(f"Collection {name} never became ready (state={last_state})")
 
 
 def ensure_collection_loaded(collection_name: str) -> None:
-    """Ensure a collection is loaded into memory before insert/search operations."""
+    """
+    Ensure a collection is loaded into memory before operations.
+
+    Loads collection if not already loaded for insert/search operations.
+    """
     try:
         load_state = utility.load_state(collection_name)
         if load_state == LoadState.Loaded:
@@ -220,7 +228,7 @@ def ensure_collection_loaded(collection_name: str) -> None:
         # Verify loaded state
         if utility.load_state(collection_name) != LoadState.Loaded:
             raise TimeoutError(
-                f"Collection '{collection_name}' did not reach Loaded state"
+                f"Collection '{collection_name}' did not reach Loaded " "state"
             )
         logger.info(f"✅ Collection '{collection_name}' loaded")
     except Exception as e:
@@ -242,13 +250,21 @@ class MilvusRecordStore:
 
         if client is not None:
             self.client = client
+        elif os.getenv("MILVUS_SKIP_CONNECT") == "1":
+
+            class _Dummy:
+                @staticmethod
+                def get(collection_name, ids):
+                    return []
+
+            self.client = _Dummy()
         else:
             self.client = MilvusClient(uri=uri)
 
     def insert_record(
         self,
         collection_name: str,
-        record: Union[Dict[str, Any], list[Dict[str, Any]]],
+        record: Union[Dict[str, Any], List[Dict[str, Any]]],
     ):
         """Insert one or more records into the given collection.
 
@@ -261,14 +277,14 @@ class MilvusRecordStore:
         collection = Collection(collection_name)
         schema_field_names = [f.name for f in collection.schema.fields]
 
-        rows: list[Dict[str, Any]] = record if isinstance(record, list) else [record]
+        rows: List[Dict[str, Any]] = record if isinstance(record, list) else [record]
 
         for i, r in enumerate(rows):
             missing = [name for name in schema_field_names if name not in r]
             if missing:
                 raise ValueError(
-                    f"Row {i} missing required fields for '{collection_name}': "
-                    f"{missing}"
+                    f"Row {i} missing required fields for "
+                    f"'{collection_name}': {missing}"
                 )
             # Catch type/dimension problems early (common source of "bad" entities)
             validate_record_against_collection_schema(collection_name, r)
@@ -290,10 +306,7 @@ class MilvusRecordStore:
         """Return True if a record with primary key id exists in the collection."""
         ensure_collection_loaded(collection_name)
         collection = Collection(collection_name)
-        results = collection.query(
-            expr=f'id in ["{record_id}"]',
-            output_fields=["id"],
-        )
+        results = collection.query(expr=f'id in ["{record_id}"]', output_fields=["id"])
         return len(results) > 0
 
     def delete_record(self, collection_name: str, record_id: str):
@@ -304,8 +317,6 @@ class MilvusRecordStore:
         result = collection.delete(expr=f'id in ["{record_id}"]')
         collection.flush()  # Ensure deletion is persisted
         # Force compaction to immediately remove deleted records (for testing)
-        import time
-
         time.sleep(0.1)  # Brief wait for flush to complete
         print(
             f"Deleted record {record_id} from {collection_name}; "
@@ -334,7 +345,8 @@ class MilvusRecordStore:
         if not record:
             print(f"No such record found in {collection_from}")
             return False
-        # Ensure the target collection has all required fields.
+        # Ensure the target collection has all required fields;
+        # missing optional fields filled if needed.
         self.insert_record(collection_to, record)
         self.delete_record(collection_from, record_id)
         print(f"Record id={record_id} moved {collection_from} -> {collection_to}")
@@ -356,8 +368,8 @@ def create_collection_if_not_exists(
             # Validate schema matches what this code expects.
             _ensure_collection_schema_matches(name, fields)
             logger.info(
-                f"⚡ Collection '{name}' already exists (schema OK; "
-                "will auto-load on first use)"
+                f"⚡ Collection '{name}' already exists (schema OK; will "
+                "auto-load on first use)"
             )
             return Collection(name)
 
@@ -399,23 +411,20 @@ def create_collection_if_not_exists(
 
 
 def init_collections():
-    """Initialize Veritatis collections (Tier 1 and Tier 2)."""
+    """Initialize all three Veritatis tiers."""
     logger.info("Initializing all Milvus collections...")
     start_all = time.time()
 
     # Tier 1: Lacus Factorum
     logger.info("Tier 1: Lacus Factorum (veritatis_tier1_lake)")
     tier1_fields = [
-        FieldSchema(
-            name="id",
-            dtype=DataType.VARCHAR,
-            is_primary=True,
-            max_length=100,
-        ),
-        FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535),
+        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-        # Store JSON-serialized metadata as VARCHAR for compatibility.
-        FieldSchema(name="metadata", dtype=DataType.VARCHAR, max_length=65535),
+        FieldSchema(name="source_url", dtype=DataType.VARCHAR, max_length=500),
+        FieldSchema(name="credibility_score", dtype=DataType.FLOAT),
+        FieldSchema(name="ingested_timestamp", dtype=DataType.INT64),
+        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
     ]
     tier1_index = {
         "index_type": "HNSW",
@@ -433,17 +442,12 @@ def init_collections():
     # Tier 2: Arena Veritatis
     logger.info("Tier 2: Arena Veritatis (veritatis_tier2_arena)")
     tier2_fields = [
-        FieldSchema(
-            name="id",
-            dtype=DataType.VARCHAR,
-            is_primary=True,
-            max_length=100,
-        ),
-        FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535),
+        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-        FieldSchema(name="metadata", dtype=DataType.VARCHAR, max_length=65535),
         FieldSchema(name="verification_confidence", dtype=DataType.FLOAT),
         FieldSchema(name="cross_source_count", dtype=DataType.INT64),
+        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
     ]
     tier2_index = {
         "index_type": "HNSW",
@@ -457,5 +461,29 @@ def init_collections():
         "Arena Veritatis — candidate facts",
         tier2_index,
     )
+
+    # Tier 3: Sanctum Veritatis
+    logger.info("Tier 3: Sanctum Veritatis (veritatis_tier3_sanctum)")
+    tier3_fields = [
+        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
+        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
+        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
+        FieldSchema(name="verified_by", dtype=DataType.VARCHAR, max_length=200),
+        FieldSchema(name="last_review_timestamp", dtype=DataType.INT64),
+        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
+    ]
+    tier3_index = {
+        "index_type": "HNSW",
+        "metric_type": "COSINE",
+        "params": {"M": 32, "efConstruction": 400},
+    }
+
+    create_collection_if_not_exists(
+        "veritatis_tier3_sanctum",
+        tier3_fields,
+        "Sanctum Veritatis — verified facts",
+        tier3_index,
+    )
+
     total_elapsed = time.time() - start_all
-    logger.info(f"✅ Collections initialized in {total_elapsed:.2f}s")
+    logger.info(f"✅ All 3 collections initialized in {total_elapsed:.2f}s")

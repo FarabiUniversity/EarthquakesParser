@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def main():
-    """Run the parser manager against downloaded records in Supabase."""
+    """Run the parser on downloaded search results."""
     load_dotenv()
     db = SupabaseDB()
     file_storage = SupabaseFileStorage(bucket_name="html-files")

@@ -2,8 +2,7 @@
 
 import json
 import re
-from textwrap import dedent
-from typing import Any, Optional, cast
+from typing import Optional
 
 import requests
 from openai import OpenAI
@@ -51,8 +50,8 @@ class SchemaExtractor:
                 timeout=10,
             )
             response.raise_for_status()
-            payload = cast(dict[str, Any], response.json())
-            return int(payload.get("count", 0))
+            result: int = int(response.json().get("count", 0))
+            return result
         except Exception as e:
             print(f"⚠️ Error counting tokens: {e}")
             return 0
@@ -67,41 +66,36 @@ class SchemaExtractor:
         Returns:
             Formatted prompt.
         """
-        prompt = f"""
-        You are given the full HTML content of a webpage titled "{title}".
-        Your task is to analyze the structure and return a JSON object in the
-        following format:
+        return f"""
+You are given the full HTML content of a webpage titled "{title}". Your task \
+is to analyze the structure and return a JSON object in the following format:
 
-        {{
-            "schema": {{
-                "main_text": [
-                    "CSS-like selectors pointing to the main content blocks, such as "
-                    "paragraphs or article sections. Each selector should isolate a "
-                    "meaningful unit of text, like a paragraph, article body, "
-                    "or section. Avoid selectors that include navigation, footers, "
-                    "sidebars, references, or link lists."
-                ],
-                "date": "CSS-like selector pointing to the element that contains "
-                "the publication or last updated date. Prefer metadata or footer "
-                "elements with clear date formatting."
-            }},
-            "is_valid": true if the page is about earthquakes or closely related
-            topics, false otherwise
-        }}
+{{
+  "schema": {{
+    "main_text": ["CSS-like selectors pointing to the main content blocks, \
+such as paragraphs or article sections. Each selector should isolate a \
+meaningful unit of text, like a paragraph, article body, or section. Avoid \
+selectors that include navigation, footers, sidebars, references, or link \
+lists."],
+    "date": "CSS-like selector pointing to the element that contains the \
+publication or last updated date. Prefer metadata or footer elements with \
+clear date formatting."
+  }},
+  "is_valid": true if the page is about earthquakes or closely related topics, \
+false otherwise
+}}
 
-        ⚠️ Important: Do not return anything except the JSON object wrapped in
-        triple backticks like this:
+⚠️ Important: Do not return anything except the JSON object wrapped in triple \
+backticks like this:
+```json
+{{...}}
+```
 
-        ```json
-        {{"schema": {{...}}, "is_valid": true}}
-        ```
+Here is the HTML content:
+{html}
+"""
 
-        Here is the HTML content:
-        {html}
-        """
-        return dedent(prompt).strip() + "\n"
-
-    def _extract_json(self, text: str) -> Optional[dict[str, Any]]:
+    def _extract_json(self, text: str) -> Optional[dict]:
         """Extract JSON from GPT response.
 
         Args:
@@ -113,10 +107,8 @@ class SchemaExtractor:
         match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
         if match:
             try:
-                parsed = json.loads(match.group(1))
-                if isinstance(parsed, dict):
-                    return cast(dict[str, Any], parsed)
-                return None
+                result_dict: dict = json.loads(match.group(1))
+                return result_dict
             except json.JSONDecodeError as e:
                 print(f"❌ JSON parsing error: {e}")
         return None
@@ -169,8 +161,8 @@ class SchemaExtractor:
                     {
                         "role": "system",
                         "content": (
-                            "You are a helpful assistant that extracts schema "
-                            "from HTML."
+                            "You are a helpful assistant that extracts "
+                            "schema from HTML."
                         ),
                     },
                     {"role": "user", "content": prompt},
@@ -182,7 +174,7 @@ class SchemaExtractor:
             result = self._extract_json(result_text)
 
             if not result:
-                print("❌ Failed to extract JSON from response")
+                print("Failed to extract JSON from response")
                 return None
 
             print(f"📄 GPT Response:\n{result}")
@@ -191,18 +183,11 @@ class SchemaExtractor:
             schema_data = result.get("schema", {})
             is_valid = result.get("is_valid", False)
 
-            if not isinstance(schema_data, dict):
-                schema_data = {}
-
-            main_text_selectors = schema_data.get("main_text", [])
-            if not isinstance(main_text_selectors, list):
-                main_text_selectors = []
-
             return PageSchema(
                 domain=domain,
-                main_text_selectors=cast(list[str], main_text_selectors),
-                date_selector=cast(Optional[str], schema_data.get("date")),
-                is_valid=bool(is_valid),
+                main_text_selectors=schema_data.get("main_text", []),
+                date_selector=schema_data.get("date"),
+                is_valid=is_valid,
             )
 
         except Exception as e:

@@ -53,7 +53,7 @@ class ParserManager:
         search_result_id: str,
         main_text: list,
         date: Optional[str],
-        page_schema_id: Optional[str],
+        page_schema_id: Optional[str] = None,
     ) -> Optional[str]:
         """Save parsed content to database.
 
@@ -162,8 +162,9 @@ class ParserManager:
             date=None,
             page_schema_id=None,
         )
+
         if not parsed_content_id:
-            print("❌ Failed to create parsed_content placeholder")
+            print("❌ Failed to create parsed content record")
             return False
 
         domain = self._get_domain(url)
@@ -224,7 +225,7 @@ class ParserManager:
         # Step 4: Check if extraction was successful
         # Failed only if main_text is empty (date can be None)
         if not result.main_text:
-            print("⚠️ Extraction failed (main_text empty), re-extracting schema...")
+            print("⚠️ Extraction failed (main_text empty), " "re-extracting schema...")
 
             # Re-extract schema
             schema = self.schema_extractor.extract_schema(html, title, domain)
@@ -262,7 +263,7 @@ class ParserManager:
         )
 
         if content_id:
-            print(f"✅ Content saved with ID: {parsed_content_id}")
+            print(f"✅ Content saved with ID: {content_id}")
             self.mark_as(parsed_content_id, "parsed")
             return True
         else:
@@ -312,15 +313,16 @@ class ParserManager:
                 # Mark as failed in DB
                 try:
                     self.mark_as(str(record["id"]), "failed")
-                except Exception:
+                except Exception:  # nosec B110
+                    # Silently ignore marking errors during cleanup
                     pass
 
-        print(f"\n{'=' * 100}")
+        print(f"\n{'='*100}")
         print("📊 Parsing complete:")
         print(f"   Total: {stats['total']}")
         print(f"   ✅ Successful: {stats['successful']}")
         print(f"   ❌ Failed: {stats['failed']}")
-        print(f"{'=' * 100}")
+        print(f"{'='*100}")
 
         return stats
 

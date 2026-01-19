@@ -30,7 +30,7 @@ from earthquakes_parser.parser import SchemaExtractor
 
 extractor = SchemaExtractor(
     openai_base_url="http://192.168.8.22:9999/v1",
-    openai_api_key="YOUR_API_KEY"  # pragma: allowlist secret
+    openai_api_key="api-key"  # pragma: allowlist secret
 )
 
 schema = extractor.extract_schema(
@@ -51,7 +51,7 @@ if schema:
 ```python
 SchemaExtractor(
     openai_base_url: str = "http://192.168.8.22:9999/v1",
-    openai_api_key: str = "YOUR_API_KEY",  # pragma: allowlist secret
+    openai_api_key: str = "api-key",
     model: str = "gpt-4",
     max_tokens: int = 80000
 )

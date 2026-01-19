@@ -27,7 +27,7 @@ def _embedding():
 @pytest.fixture(scope="module", autouse=True)
 def _ensure_milvus():
     """Skip tests if Milvus is not reachable."""
-    # Ensure we can reach Milvus; skip if unavailable
+    # Ensure we can reach a real Milvus; skip if unavailable
     try:
         vs.ensure_connection()
     except Exception as e:
@@ -128,6 +128,9 @@ def test_insert_batch_and_move():
     to_move = ids[1]
     ok = store.move_record(src, dst, to_move)
     assert ok is True
+    # Note: In Milvus v2.2, deleted records may still appear in queries
+    # until compaction. So we verify the move succeeded by checking the
+    # destination, not absence from source.
     assert store.record_exists(dst, to_move) is True
 
     out = Path("artifacts") / "milvus_store_integration_move.json"

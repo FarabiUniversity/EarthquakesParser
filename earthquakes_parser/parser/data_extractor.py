@@ -100,7 +100,8 @@ class DataExtractor:
 
             # Parse date
             parsed_date = date_parser.parse(date_text, fuzzy=True).date()
-            return parsed_date.isoformat()  # YYYY-MM-DD format
+            result: str = parsed_date.isoformat()  # YYYY-MM-DD format
+            return result
 
         except Exception as e:
             print(f"⚠️ Failed to parse date: {e}")

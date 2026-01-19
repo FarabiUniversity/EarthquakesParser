@@ -31,8 +31,8 @@ class EmbeddingGenerator:
             vec = self._model.encode(
                 cleaned, show_progress_bar=False, normalize_embeddings=True
             )
-        # SentenceTransformer returns a numpy array; normalize to a plain list[float]
-        return [float(x) for x in vec]
+        result: List[float] = vec.tolist()
+        return result
 
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """Generate embedding vectors for multiple texts."""
@@ -41,7 +41,7 @@ class EmbeddingGenerator:
             vectors = self._model.encode(
                 cleaned, show_progress_bar=False, normalize_embeddings=True
             )
-        return [[float(x) for x in v] for v in vectors]
+        return [v.tolist() for v in vectors]
 
 
 embedding_generator = EmbeddingGenerator()

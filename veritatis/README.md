@@ -1,144 +1,115 @@
-# Veritatis
+# Veritatis: Earthquake News RAG
 
-Veritatis is a small FastAPI + Milvus service for embedding and searching earthquake-related text.
+This repo provides a FastAPI service and Milvus-backed vector store to ingest, and validate earthquake-related content via a tiered pipeline.
 
-## Data model (Tier 1)
+## Quick Start
 
-All ingestion uses a simple, stable, “tier-1” shape:
+- Requirements: macOS/ARM64, Docker, Python 3.12, Poetry (or venv + pip).
+- Services: etcd + Milvus standalone + FastAPI API.
 
-```json
-{
-  "id": "...",
-  "text": "...",
-  "metadata": {"any": "json"}
-}
+### Environment
+
+- Configure `.env` (for local dev) or real environment variables:
+  - `ENV=development`
+  - `MILVUS_HOST=localhost`
+  - `MILVUS_PORT=19530`
+
+The code prefers real env vars; `.env` is only used when `ENV` is missing or `ENV=development`.
+
+### Run Services
+
+- Start Milvus + etcd + API:
+
+```zsh
+docker compose up -d --build
 ```
 
-- `id` is your primary key (string).
-- `text` is the content that gets embedded.
-- `metadata` is any JSON you want to carry along (stored as JSON-serialized text in Milvus).
+- If port `8000` is busy, either stop the other service or remap in `docker-compose.yml` (e.g., `8080:8000`).
 
-## Requirements
+### API Endpoints
 
-- Docker (for Milvus)
-- Python 3.11+ (repo targets 3.11–3.12)
-- `uv` (recommended) or any equivalent environment manager
+- `GET /health` — health check
+- `POST /ingest` — body `{ content: str, source_url?: str }` → dedup, embed, insert into Tier 1
 
-## Setup
+Run API locally:
 
-Install deps:
-
-```bash
-uv sync
+```zsh
+poetry run uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
-Create `.env` (example):
+### Milvus Collections
 
-```dotenv
-MILVUS_HOST=localhost
-MILVUS_PORT=19530
+Three collections with `FLOAT_VECTOR(1024)` embeddings (bge-m3):
+- `veritatis_tier1_lake`: raw lake
+- `veritatis_tier2_arena`: candidate facts
+- `veritatis_tier3_sanctum`: verified facts
 
-SUPABASE_URL=...
-SUPABASE_KEY=...
+HNSW index with COSINE similarity is created on `embedding`.
+
+Initialize (if not created yet):
+
+```zsh
+poetry run python scripts/init_collections.py
 ```
 
-Notes:
+### Embeddings
 
-- `SUPABASE_KEY` can be an anon key only if your table policies allow read access.
-- For backend ingestion, prefer `SUPABASE_SERVICE_ROLE_KEY` (the script accepts either).
+- Default model: `BAAI/bge-m3` (1024 dims, normalized).
+- First run downloads the model (~GBs). Allow time or pre-bake/caching.
 
-## Start Milvus (Docker)
+### Testing
 
-```bash
-docker-compose up -d etcd minio milvus
+- Embeddings unit test:
+
+```zsh
+poetry run pytest -q tests/test_embeddings.py
 ```
 
-Confirm Milvus is healthy:
+- Vector store integration tests (real Milvus required):
 
-```bash
-curl -sf http://localhost:9091/healthz
+```zsh
+# Start Milvus services first
+docker compose up -d etcd milvus
+
+# Run integration tests against real Milvus on localhost:19530
+poetry run pytest -q tests/test_vector_store_unit.py
 ```
 
-## Run the API (local)
+- Optional artifact for embeddings (JUnit XML):
 
-Run FastAPI on port 8001:
-
-```bash
-set -a && source .env && set +a
-ENV=development MILVUS_RECREATE_ON_STARTUP=true \
-  uv run uvicorn api.main:app --host 127.0.0.1 --port 8001
+```zsh
+poetry run pytest -q tests/test_embeddings.py --junitxml=artifacts/embeddings_junit.xml
 ```
 
-Use `MILVUS_RECREATE_ON_STARTUP=true` when:
 
-- you changed the Milvus schema (fields/max_length/dim), or
-- you want a clean slate.
 
-For normal restarts, set it to `false`.
+### Milvus Connectivity
 
-## Ingest parsed content from Supabase
+If you want integration tests (real Milvus):
+- Ensure `milvus-standalone` is Running and `localhost:19530` is reachable.
+- Common fixes on macOS/ARM64:
+  - Use a recent image (e.g., `milvusdb/milvus:v2.4.x`) if `v2.3.0` exits.
+  - Verify logs: `docker logs milvus-standalone`.
+  - Check ports: `nc -zv 127.0.0.1 19530`.
 
-The script in veritatis/ingest_parsed_content.py reads `parsed_content` from Supabase and POSTs batches to the API.
+### Development Notes
 
-In a second terminal:
+- `veritatis/vector_stores.py` exposes `MilvusRecordStore` with:
+  - `insert_record(collection, record|list[record])`
+  - `record_exists(collection, id)`
+  - `get_record(collection, id)` (uses client.get to include vectors)
+  - `move_record(src, dst, id)`
+- Set `MILVUS_SKIP_CONNECT=1` to avoid real connections in tests.
+- `veritatis/embeddings.py` provides normalized embeddings via `EmbeddingGenerator`.
 
-```bash
-set -a && source .env && set +a
-uv run python veritatis/ingest_parsed_content.py
-```
+### Troubleshooting
 
-Notes:
+- Model download interrupted: rerun, or switch to a lighter model for dev.
+- Port conflicts: free port `8000` or change compose mapping.
+- Milvus not reachable: confirm the container is Up; consider upgrading the image.
 
-- The script is resilient to missing columns like `parsed_at`.
-- If a `main_text` row contains JSON like `[]` or `["..."]`, it is normalized into plain text before embedding.
-- Long documents are chunked into multiple records (`<parent_id>:<chunk_index>`) to fit Milvus VARCHAR limits.
+### Next Steps
 
-## API examples
-
-Health:
-
-```bash
-curl -s http://127.0.0.1:8001/health
-```
-
-Ingest (batch):
-
-```bash
-curl -s http://127.0.0.1:8001/ingest \
-  -H "Content-Type: application/json" \
-  -d '[
-    {
-      "id": "example-1",
-      "text": "Magnitude 5.2 earthquake near City X.",
-      "metadata": {"source": "demo"}
-    }
-  ]'
-```
-
-Search:
-
-```bash
-curl -s http://127.0.0.1:8001/search \
-  -H "Content-Type: application/json" \
-  -d '{"query":"earthquake","top_k":5}'
-```
-
-Move Tier1 → Tier2:
-
-```bash
-curl -s http://127.0.0.1:8001/move \
-  -H "Content-Type: application/json" \
-  -d '{"record_id":"example-1","verification_confidence":0.8,"cross_source_count":2}'
-```
-
-## Testing
-
-```bash
-uv run pytest -q
-```
-
-## Troubleshooting
-
-- **Schema mismatch errors**: set `MILVUS_RECREATE_ON_STARTUP=true` (or wipe Milvus volumes) and restart.
-- **Supabase permission errors**: your key likely lacks read access to `parsed_content` under RLS; use service role or adjust policies.
-- **Port conflicts**: change the `--port` argument when running uvicorn locally.
+- Supabase integration for ID mapping.
+- Reranking for search results.
+- Additional CRUD endpoints for tier movement.
