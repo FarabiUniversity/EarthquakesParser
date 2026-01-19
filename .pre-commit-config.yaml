@@ -76,7 +76,10 @@ repos:
       - id: mypy
         name: Type check with mypy
         exclude: ^scripts/
-        additional_dependencies: [types-requests, types-beautifulsoup4]
+        additional_dependencies:
+          - types-requests
+          - types-beautifulsoup4
+          - types-python-dateutil
         args: ['--ignore-missing-imports']
 
   # Check for common security issues

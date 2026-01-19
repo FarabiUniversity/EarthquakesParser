@@ -1,6 +1,6 @@
 """Schema management in database."""
 import json
-from typing import Optional
+from typing import Optional, cast
 
 from earthquakes_parser.parser.models import PageSchema
 from earthquakes_parser.storage.supabase.database import SupabaseDB
@@ -38,11 +38,15 @@ class SchemaManager:
                 return None
 
             row = df.iloc[0]
+            main_text_raw = row["main_text_selectors"]
+            main_text_selectors = json.loads(main_text_raw)
+            if not isinstance(main_text_selectors, list):
+                main_text_selectors = []
             return PageSchema(
                 id=str(row["id"]),
                 domain=row["domain"],
-                main_text_selectors=json.loads(row["main_text_selectors"]),
-                date_selector=row.get("date_selector"),
+                main_text_selectors=cast(list[str], main_text_selectors),
+                date_selector=cast(Optional[str], row.get("date_selector")),
                 is_valid=row["is_valid"],
                 created_at=row.get("created_at"),
                 updated_at=row.get("updated_at"),
@@ -65,10 +69,12 @@ class SchemaManager:
             existing = self.get_by_domain(schema.domain)
 
             if existing:
+                if existing.id is None:
+                    return None
                 # Update existing
                 updated = self.db.update(
                     self.table,
-                    existing.id,
+                    str(existing.id),
                     schema.to_dict(),
                 )
                 return existing.id if updated else None

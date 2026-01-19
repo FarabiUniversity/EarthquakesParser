@@ -7,8 +7,6 @@ from earthquakes_parser.parser.data_extractor import DataExtractor
 from earthquakes_parser.parser.models import ParsedContent
 from earthquakes_parser.parser.schema_extractor import SchemaExtractor
 from earthquakes_parser.parser.schema_manager import SchemaManager
-from earthquakes_parser.search import DDGSearcher, GoogleSearcher
-from earthquakes_parser.search.search_manager import SearchManager
 from earthquakes_parser.storage.supabase.database import SupabaseDB
 from earthquakes_parser.storage.supabase.file_storage import SupabaseFileStorage
 
@@ -164,6 +162,9 @@ class ParserManager:
             date=None,
             page_schema_id=None,
         )
+        if not parsed_content_id:
+            print("❌ Failed to create parsed_content placeholder")
+            return False
 
         domain = self._get_domain(url)
 
@@ -175,13 +176,13 @@ class ParserManager:
 
         # Step 1: Download HTML from storage
         if not html_storage_path:
-            print(f"❌ No HTML storage path for this record")
+            print("❌ No HTML storage path for this record")
             self.mark_as(parsed_content_id, "failed")
             return False
 
         html = self.file_storage.download(html_storage_path)
         if not html:
-            print(f"❌ Failed to download HTML from storage")
+            print("❌ Failed to download HTML from storage")
             self.mark_as(parsed_content_id, "failed")
             return False
 
@@ -213,7 +214,7 @@ class ParserManager:
 
         # Check if page is valid
         if not schema.is_valid:
-            print(f"⚠️ Page is not about earthquakes, skipping...")
+            print("⚠️ Page is not about earthquakes, skipping...")
             self.mark_as(parsed_content_id, "failed")
             return False
 
@@ -223,19 +224,19 @@ class ParserManager:
         # Step 4: Check if extraction was successful
         # Failed only if main_text is empty (date can be None)
         if not result.main_text:
-            print(f"⚠️ Extraction failed (main_text empty), re-extracting schema...")
+            print("⚠️ Extraction failed (main_text empty), re-extracting schema...")
 
             # Re-extract schema
             schema = self.schema_extractor.extract_schema(html, title, domain)
             if not schema:
-                print(f"❌ Failed to re-extract schema")
+                print("❌ Failed to re-extract schema")
                 self.mark_as(parsed_content_id, "failed")
                 return False
 
             # Save updated schema
             schema_id = self.schema_manager.save(schema)
             if not schema_id:
-                print(f"❌ Failed to save re-extracted schema")
+                print("❌ Failed to save re-extracted schema")
                 self.mark_as(parsed_content_id, "failed")
                 return False
 
@@ -245,7 +246,7 @@ class ParserManager:
             result = self.data_extractor.extract(html, schema)
 
             if not result.main_text:
-                print(f"❌ Re-extraction also failed, marking as failed...")
+                print("❌ Re-extraction also failed, marking as failed...")
                 self.mark_as(parsed_content_id, "failed")
                 return False
 
@@ -261,11 +262,11 @@ class ParserManager:
         )
 
         if content_id:
-            print(f"✅ Content saved with ID: {content_id}")
+            print(f"✅ Content saved with ID: {parsed_content_id}")
             self.mark_as(parsed_content_id, "parsed")
             return True
         else:
-            print(f"❌ Failed to save content")
+            print("❌ Failed to save content")
             self.mark_as(parsed_content_id, "failed")
             return False
 
@@ -278,7 +279,7 @@ class ParserManager:
         Returns:
             Dictionary with statistics.
         """
-        print(f"📥 Loading downloaded search results from database...")
+        print("📥 Loading downloaded search results from database...")
 
         # Get records with status='downloaded'
         records = self.get_search_results(limit=limit)
@@ -311,15 +312,15 @@ class ParserManager:
                 # Mark as failed in DB
                 try:
                     self.mark_as(str(record["id"]), "failed")
-                except:
+                except Exception:
                     pass
 
-        print(f"\n{'='*100}")
-        print(f"📊 Parsing complete:")
+        print(f"\n{'=' * 100}")
+        print("📊 Parsing complete:")
         print(f"   Total: {stats['total']}")
         print(f"   ✅ Successful: {stats['successful']}")
         print(f"   ❌ Failed: {stats['failed']}")
-        print(f"{'='*100}")
+        print(f"{'=' * 100}")
 
         return stats
 

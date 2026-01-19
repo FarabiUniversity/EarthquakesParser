@@ -2,9 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import Any
 
-import pandas as pd
 from dotenv import load_dotenv
 
 from earthquakes_parser import SupabaseDB, SupabaseFileStorage
@@ -15,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def main():
+    """Run the parser manager against downloaded records in Supabase."""
     load_dotenv()
     db = SupabaseDB()
     file_storage = SupabaseFileStorage(bucket_name="html-files")
