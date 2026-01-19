@@ -49,7 +49,7 @@ class DataExtractor:
             )
 
     def _extract_main_text(
-            self, soup: BeautifulSoup, selectors: List[str]
+        self, soup: BeautifulSoup, selectors: List[str]
     ) -> List[str]:
         """Extract main text using CSS selectors.
 
@@ -75,7 +75,7 @@ class DataExtractor:
         return texts
 
     def _extract_date(
-            self, soup: BeautifulSoup, selector: Optional[str]
+        self, soup: BeautifulSoup, selector: Optional[str]
     ) -> Optional[str]:
         """Extract and parse date using CSS selector.
 
@@ -100,7 +100,8 @@ class DataExtractor:
 
             # Parse date
             parsed_date = date_parser.parse(date_text, fuzzy=True).date()
-            return parsed_date.isoformat()  # YYYY-MM-DD format
+            result: str = parsed_date.isoformat()  # YYYY-MM-DD format
+            return result
 
         except Exception as e:
             print(f"⚠️ Failed to parse date: {e}")

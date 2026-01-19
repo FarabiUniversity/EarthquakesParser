@@ -1,0 +1,29 @@
+# Ignore local runtime volumes and caches
+volumes/
+volumes/huggingface/
+volumes/milvus/
+volumes/etcd/
+volumes/minio/
+
+# Python envs and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.dist-info/
+
+# Git and editor
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+
+# Test and build artifacts
+.pytest_cache/
+build/
+dist/
+
+# Other
+.env
