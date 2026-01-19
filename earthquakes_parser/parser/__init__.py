@@ -13,6 +13,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from earthquakes_parser.parser.content_parser import ContentParser
     from earthquakes_parser.parser.data_extractor import DataExtractor
     from earthquakes_parser.parser.models import (
         ExtractionResult,
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from earthquakes_parser.parser.schema_manager import SchemaManager
 
 __all__ = [
+    "ContentParser",
     "ParserManager",
     "SchemaExtractor",
     "SchemaManager",
@@ -35,6 +37,7 @@ __all__ = [
 
 
 _EXPORTS: dict[str, tuple[str, str]] = {
+    "ContentParser": ("earthquakes_parser.parser.content_parser", "ContentParser"),
     "ParserManager": ("earthquakes_parser.parser.parser_manager", "ParserManager"),
     "SchemaExtractor": (
         "earthquakes_parser.parser.schema_extractor",
