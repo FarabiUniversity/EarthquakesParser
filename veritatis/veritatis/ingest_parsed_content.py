@@ -17,11 +17,11 @@ from supabase import create_client  # type: ignore[attr-defined]
 
 try:
     from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
 
+if load_dotenv is not None:
     load_dotenv()
-except Exception:
-    # Optional: the script still works if env vars are set externally.
-    pass
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 # Prefer service role key for backend ingestion, but allow a generic SUPABASE_KEY
