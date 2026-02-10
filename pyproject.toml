@@ -34,6 +34,7 @@ dependencies = [
     "supabase>=2.22.1",
     "selenium>=4.32.0",
     "fastapi>=0.123.10",
+    "matplotlib>=3.9.4",
 ]
 
 [project.optional-dependencies]
