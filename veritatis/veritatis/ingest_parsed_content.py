@@ -13,8 +13,6 @@ from typing import Any, Dict, Iterable, List, Sequence, cast
 import requests
 from postgrest.exceptions import APIError
 
-from supabase import create_client  # type: ignore[attr-defined]
-
 try:
     from dotenv import load_dotenv
 except ImportError:
@@ -27,6 +25,38 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 # Prefer service role key for backend ingestion, but allow a generic SUPABASE_KEY
 # for convenience (may fail if RLS blocks access).
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+
+_SUPABASE_CLIENT: Any = None
+
+
+def _get_supabase_client():
+    """Return a cached Supabase client.
+
+    Prefers reusing the shared connector from `earthquakes_parser` when importable.
+    Falls back to direct `supabase.create_client` to keep this script runnable in
+    a standalone Veritatis environment.
+    """
+    global _SUPABASE_CLIENT
+    if _SUPABASE_CLIENT is not None:
+        return _SUPABASE_CLIENT
+
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise RuntimeError(
+            "Missing SUPABASE_URL and Supabase key "
+            "(SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY)"
+        )
+
+    try:
+        from earthquakes_parser.storage.supabase import SupabaseDB
+
+        _SUPABASE_CLIENT = SupabaseDB(url=SUPABASE_URL, key=SUPABASE_KEY).client
+        return _SUPABASE_CLIENT
+    except Exception:
+        from supabase import create_client  # type: ignore[attr-defined]
+
+        _SUPABASE_CLIENT = create_client(SUPABASE_URL, SUPABASE_KEY)
+        return _SUPABASE_CLIENT
+
 
 # Default to the local FastAPI port used in this repo.
 # In docker-compose.yml the API is exposed on 8000.
@@ -167,13 +197,7 @@ def fetch_parsed_content(offset: int, limit: int) -> List[Dict[str, Any]]:
 
     Tries ordering by `parsed_at` if present; falls back to ordering by `id`.
     """
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        raise RuntimeError(
-            "Missing SUPABASE_URL and Supabase key "
-            "(SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY)"
-        )
-
-    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    client = _get_supabase_client()
 
     # Try to use parsed_at ordering if the column exists; fall back to id ordering.
     try:
@@ -216,13 +240,8 @@ def mark_ingested(parsed_content_ids: Sequence[str]) -> None:
     """Mark parsed_content rows as ingested in Supabase."""
     if not parsed_content_ids:
         return
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        raise RuntimeError(
-            "Missing SUPABASE_URL and Supabase key "
-            "(SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY)"
-        )
 
-    client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    client = _get_supabase_client()
     try:
         client.table("parsed_content").update({"status": "ingested"}).in_(
             "id", list(parsed_content_ids)
@@ -251,12 +270,12 @@ def send_to_ingest(records: List[Dict[str, Any]]) -> List[str]:
             # Skip empty/NULL content to avoid 422s.
             continue
 
-        parent_id = r["id"]
+        parsed_content_id = r["id"]
         chunks = chunk_text(text)
         if not chunks:
             continue
 
-        ingested_parsed_content_ids.append(parent_id)
+        ingested_parsed_content_ids.append(parsed_content_id)
 
         base_metadata = {
             "search_result_id": r.get("search_result_id"),
@@ -269,10 +288,10 @@ def send_to_ingest(records: List[Dict[str, Any]]) -> List[str]:
         for idx, chunk in enumerate(chunks):
             body = {
                 "content": chunk,
-                "supabase_id": parent_id,
+                "supabase_id": parsed_content_id,
                 "metadata": {
                     **base_metadata,
-                    "parent_id": parent_id,
+                    "parsed_content_id": parsed_content_id,
                     "chunk_index": idx,
                     "chunk_count": len(chunks),
                 },
