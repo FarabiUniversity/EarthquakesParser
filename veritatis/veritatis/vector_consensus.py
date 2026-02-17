@@ -141,17 +141,14 @@ def calculate_detail_scores(contents: List[str]) -> List[float]:
 
     # Normalize to [0, 1]
     normalized_scores = [
-        (length - min_length) / (max_length - min_length)
-        for length in lengths
+        (length - min_length) / (max_length - min_length) for length in lengths
     ]
 
     return normalized_scores
 
 
 def fetch_all_vectors(
-    collection_name: str,
-    limit: Optional[int] = None,
-    offset: int = 0
+    collection_name: str, limit: Optional[int] = None, offset: int = 0
 ) -> List[Dict[str, Any]]:
     """
     Fetch all vectors from a Milvus collection.
@@ -184,7 +181,7 @@ def fetch_all_vectors(
         limit = num_entities
 
     # Fetch records using query (metadata only, no embeddings)
-    expr = f"id != ''"  # Match all records
+    expr = "id != ''"  # Match all records
 
     results = collection.query(
         expr=expr,
@@ -216,15 +213,17 @@ def fetch_all_vectors(
 
     # Combine metadata with embeddings
     for record, embedding in zip(results, embeddings):
-        records_with_embeddings.append({
-            "id": record["id"],
-            "content": record.get("content", ""),
-            "source_url": record.get("source_url", ""),
-            "credibility_score": float(record.get("credibility_score", 0.0)),
-            "ingested_timestamp": int(record.get("ingested_timestamp", 0)),
-            "supabase_id": record.get("supabase_id", ""),
-            "embedding": embedding,  # Regenerated from content
-        })
+        records_with_embeddings.append(
+            {
+                "id": record["id"],
+                "content": record.get("content", ""),
+                "source_url": record.get("source_url", ""),
+                "credibility_score": float(record.get("credibility_score", 0.0)),
+                "ingested_timestamp": int(record.get("ingested_timestamp", 0)),
+                "supabase_id": record.get("supabase_id", ""),
+                "embedding": embedding,  # Regenerated from content
+            }
+        )
 
     logger.info(
         f"Successfully fetched {len(records_with_embeddings)} vectors with embeddings"
@@ -271,8 +270,9 @@ def find_most_relevant_vector(
     logger.info(f"Weights - centrality: {centrality_weight}, detail: {detail_weight}")
 
     # Validate weights
-    assert abs(centrality_weight + detail_weight - 1.0) < 1e-6, \
-        "Weights must sum to 1.0"
+    assert (
+        abs(centrality_weight + detail_weight - 1.0) < 1e-6
+    ), "Weights must sum to 1.0"
 
     # Step 1: Fetch all vectors with embeddings (regenerated from content)
     records = fetch_all_vectors(collection_name, limit=limit, offset=offset)
@@ -312,8 +312,9 @@ def find_best_vector_with_embeddings(
         raise ValueError("Empty vector list provided")
 
     # Validate weights
-    assert abs(centrality_weight + detail_weight - 1.0) < 1e-6, \
-        "Weights must sum to 1.0"
+    assert (
+        abs(centrality_weight + detail_weight - 1.0) < 1e-6
+    ), "Weights must sum to 1.0"
 
     if len(vectors_with_embeddings) == 1:
         record = vectors_with_embeddings[0]

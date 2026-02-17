@@ -89,13 +89,20 @@ Check [Release Policy](RELEASE_POLICY.md) for:
 
 ```text
 docs/
-├── README.md              # This file
-├── QUICK_START.md         # 5-minute getting started
-├── PROJECT_STRUCTURE.md   # Architecture details
-├── CONTRIBUTING.md        # Developer guidelines
-├── RELEASE_POLICY.md      # Release process
-└── SETUP_COMPLETE.md      # Post-setup guide
+├── README.md                   # This file
+├── QUICK_START.md              # 5-minute getting started
+├── PROJECT_STRUCTURE.md        # Architecture details
+├── CONTRIBUTING.md             # Developer guidelines
+├── RELEASE_POLICY.md           # Release process
+├── SETUP_COMPLETE.md           # Post-setup guide
+├── VECTOR_CONSENSUS.md         # Векторный консенсус (veritatis)
+└── README_ANALYZE_TIER1.md     # CLI-инструмент анализа Tier 1 (veritatis)
 ```
+
+## Veritatis — Векторная система верификации
+
+- **[VECTOR_CONSENSUS.md](VECTOR_CONSENSUS.md)** — модуль поиска наиболее релевантного вектора без запроса (централность + детализированность)
+- **[README_ANALYZE_TIER1.md](README_ANALYZE_TIER1.md)** — руководство по CLI-инструменту `analyze_tier1.py` для анализа и продвижения векторов из Tier 1 в Tier 2
 
 ## Additional Resources
 

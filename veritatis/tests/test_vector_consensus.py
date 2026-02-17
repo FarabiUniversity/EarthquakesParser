@@ -1,6 +1,4 @@
-"""
-Tests for vector consensus analysis (comparing vectors without query).
-"""
+"""Tests for vector consensus analysis (comparing vectors without query)."""
 
 import numpy as np
 import pytest
@@ -115,11 +113,13 @@ class TestCentralityScores:
         # Create similarity matrix:
         # v1 is central (high similarity to v2 and v3)
         # v2 and v3 are less similar to each other
-        similarity_matrix = np.array([
-            [1.0, 0.9, 0.9],  # v1: very similar to both
-            [0.9, 1.0, 0.5],  # v2: similar to v1, less to v3
-            [0.9, 0.5, 1.0],  # v3: similar to v1, less to v2
-        ])
+        similarity_matrix = np.array(
+            [
+                [1.0, 0.9, 0.9],  # v1: very similar to both
+                [0.9, 1.0, 0.5],  # v2: similar to v1, less to v3
+                [0.9, 0.5, 1.0],  # v3: similar to v1, less to v2
+            ]
+        )
 
         centrality_scores = calculate_centrality_scores(similarity_matrix)
 
@@ -141,11 +141,13 @@ class TestCentralityScores:
     def test_all_vectors_equal(self):
         """Test when all vectors are equally similar."""
         # All pairwise similarities are 0.8
-        similarity_matrix = np.array([
-            [1.0, 0.8, 0.8],
-            [0.8, 1.0, 0.8],
-            [0.8, 0.8, 1.0],
-        ])
+        similarity_matrix = np.array(
+            [
+                [1.0, 0.8, 0.8],
+                [0.8, 1.0, 0.8],
+                [0.8, 0.8, 1.0],
+            ]
+        )
 
         centrality_scores = calculate_centrality_scores(similarity_matrix)
 
@@ -170,7 +172,7 @@ class TestDetailScores:
         contents = [
             "Short",  # 5 chars
             "Medium length text here",  # 24 chars
-            "This is a very long and detailed text with lots of information",  # 63 chars
+            "This is a very long and detailed text with lots of information",  # noqa: E501
         ]
 
         detail_scores = calculate_detail_scores(contents)
@@ -200,7 +202,7 @@ class TestDetailScores:
 
     def test_empty_list(self):
         """Test with empty content list."""
-        contents = []
+        contents: list[str] = []
 
         detail_scores = calculate_detail_scores(contents)
 
@@ -225,7 +227,7 @@ class TestFindBestVectorWithEmbeddings:
             },
             {
                 "id": "v2",
-                "content": "Medium length content with more information",  # Medium detail
+                "content": "Medium length content with more information",  # noqa: E501
                 "source_url": "http://example.com/2",
                 "credibility_score": 0.7,
                 "ingested_timestamp": 2000,
@@ -234,7 +236,7 @@ class TestFindBestVectorWithEmbeddings:
             },
             {
                 "id": "v3",
-                "content": "This is a very detailed and comprehensive text with extensive information covering many aspects",  # High detail
+                "content": "This is a very detailed and comprehensive text with extensive information covering many aspects",  # noqa: E501
                 "source_url": "http://example.com/3",
                 "credibility_score": 0.9,
                 "ingested_timestamp": 3000,
@@ -411,11 +413,13 @@ class TestIntegrationWithMilvus:
                 "credibility_score": 0.8,
                 "ingested_timestamp": 1000,
                 "supabase_id": "s1",
-                "embedding": embedding_generator.embed("Earthquake in Turkey magnitude 7.8"),
+                "embedding": embedding_generator.embed(
+                    "Earthquake in Turkey magnitude 7.8"
+                ),
             },
             {
                 "id": "consensus_2",
-                "content": "Turkey earthquake 7.8 richter scale causes destruction",  # Similar to 1
+                "content": "Turkey earthquake 7.8 richter scale causes destruction",  # noqa: E501
                 "source_url": "http://news2.com",
                 "credibility_score": 0.7,
                 "ingested_timestamp": 2000,
@@ -427,30 +431,32 @@ class TestIntegrationWithMilvus:
             {
                 "id": "consensus_3",
                 "content": (
-                    "Comprehensive report: A devastating earthquake measuring 7.8 on the Richter scale "
-                    "struck Turkey on Monday, causing widespread destruction across multiple provinces. "
-                    "Thousands of buildings collapsed, and rescue teams are working around the clock to "
-                    "find survivors. The earthquake was felt in neighboring countries including Syria."
+                    "Comprehensive report: A devastating earthquake measuring 7.8 on the Richter scale "  # noqa: E501
+                    "struck Turkey on Monday, causing widespread destruction across multiple provinces. "  # noqa: E501
+                    "Thousands of buildings collapsed, and rescue teams are working around the clock to "  # noqa: E501
+                    "find survivors. The earthquake was felt in neighboring countries including Syria."  # noqa: E501
                 ),  # Long, detailed, central topic
                 "source_url": "http://news3.com",
                 "credibility_score": 0.9,
                 "ingested_timestamp": 3000,
                 "supabase_id": "s3",
                 "embedding": embedding_generator.embed(
-                    "Comprehensive report: A devastating earthquake measuring 7.8 on the Richter scale "
-                    "struck Turkey on Monday, causing widespread destruction across multiple provinces. "
-                    "Thousands of buildings collapsed, and rescue teams are working around the clock to "
-                    "find survivors. The earthquake was felt in neighboring countries including Syria."
+                    "Comprehensive report: A devastating earthquake measuring 7.8 on the Richter scale "  # noqa: E501
+                    "struck Turkey on Monday, causing widespread destruction across multiple provinces. "  # noqa: E501
+                    "Thousands of buildings collapsed, and rescue teams are working around the clock to "  # noqa: E501
+                    "find survivors. The earthquake was felt in neighboring countries including Syria."  # noqa: E501
                 ),
             },
             {
                 "id": "consensus_4",
-                "content": "Weather update: Sunny skies expected tomorrow",  # Unrelated, short
+                "content": "Weather update: Sunny skies expected tomorrow",  # noqa: E501
                 "source_url": "http://weather.com",
                 "credibility_score": 0.5,
                 "ingested_timestamp": 4000,
                 "supabase_id": "s4",
-                "embedding": embedding_generator.embed("Weather update: Sunny skies expected tomorrow"),
+                "embedding": embedding_generator.embed(
+                    "Weather update: Sunny skies expected tomorrow"
+                ),
             },
         ]
 
@@ -459,6 +465,7 @@ class TestIntegrationWithMilvus:
 
         # Wait for indexing
         import time
+
         time.sleep(1)
 
         # Now test find_best_vector_with_embeddings with these vectors

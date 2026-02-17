@@ -15,6 +15,7 @@
     python scripts/analyze_tier1.py --move-to-tier2 --threshold 0.7
 """
 
+# isort: skip_file
 import argparse
 import sys
 from pathlib import Path
@@ -22,11 +23,8 @@ from pathlib import Path
 # Добавить veritatis в путь
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from veritatis.vector_consensus import find_most_relevant_vector
-from veritatis.vector_stores import (
-    MilvusRecordStore,
-    ensure_connection,
-)
+from veritatis.vector_consensus import find_most_relevant_vector  # noqa: E402
+from veritatis.vector_stores import MilvusRecordStore, ensure_connection  # noqa: E402
 
 
 def print_separator(char="=", length=80):
@@ -75,7 +73,7 @@ def analyze_tier1(
         return 1
 
     # Анализ
-    print(f"🧮 Параметры анализа:")
+    print("🧮 Параметры анализа:")
     print(f"   Центральность: {centrality_weight:.1%}")
     print(f"   Детальность: {detail_weight:.1%}")
     print(f"   Лимит векторов: {limit if limit else 'все'}")
@@ -100,6 +98,7 @@ def analyze_tier1(
     except Exception as e:
         print(f"❌ Неожиданная ошибка: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 
@@ -109,15 +108,15 @@ def analyze_tier1(
     print_header("🏆 ЛУЧШИЙ ВЕКТОР")
     print(f"ID: {best.id}")
     print(f"Source: {best.source_url}")
-    print(f"\n📊 Оценки:")
+    print("\n📊 Оценки:")
     print(f"   Центральность: {best.centrality_score:.3f} (схожесть с другими)")
     print(f"   Детальность:   {best.detail_score:.3f} (относительная длина)")
     print(f"   Общий балл:    {best.combined_score:.3f}")
-    print(f"\n📝 Детали:")
+    print("\n📝 Детали:")
     print(f"   Длина текста: {best.content_length} символов")
     print(f"   Credibility: {best.credibility_score:.2f}")
     print(f"   Timestamp: {best.ingested_timestamp}")
-    print(f"\n📄 Содержание:")
+    print("\n📄 Содержание:")
     # Показать первые 300 символов
     content_preview = best.content[:300]
     if len(best.content) > 300:
@@ -130,14 +129,16 @@ def analyze_tier1(
     for i, vec in enumerate(all_ranked[:top_n], 1):
         marker = "🏆" if i == 1 else f"{i}."
         print(f"{marker} {vec.id}")
-        print(f"    Балл: {vec.combined_score:.3f} "
-              f"(центр: {vec.centrality_score:.3f}, "
-              f"детал: {vec.detail_score:.3f})")
+        print(
+            f"    Балл: {vec.combined_score:.3f} "
+            f"(центр: {vec.centrality_score:.3f}, "
+            f"детал: {vec.detail_score:.3f})"
+        )
         print(f"    Длина: {vec.content_length} символов")
         print(f"    Source: {vec.source_url}")
 
         # Короткий превью текста
-        preview = vec.content[:100].replace('\n', ' ')
+        preview = vec.content[:100].replace("\n", " ")
         if len(vec.content) > 100:
             preview += "..."
         print(f"    Текст: {preview}")
@@ -150,18 +151,18 @@ def analyze_tier1(
     details = [v.detail_score for v in all_ranked]
     lengths = [v.content_length for v in all_ranked]
 
-    print(f"Общий балл:")
+    print("Общий балл:")
     print(f"   Среднее: {sum(scores) / len(scores):.3f}")
     print(f"   Минимум: {min(scores):.3f}")
     print(f"   Максимум: {max(scores):.3f}")
     print()
-    print(f"Центральность:")
+    print("Центральность:")
     print(f"   Среднее: {sum(centralities) / len(centralities):.3f}")
     print()
-    print(f"Детальность:")
+    print("Детальность:")
     print(f"   Среднее: {sum(details) / len(details):.3f}")
     print()
-    print(f"Длина текста:")
+    print("Длина текста:")
     print(f"   Среднее: {sum(lengths) // len(lengths)} символов")
     print(f"   Минимум: {min(lengths)} символов")
     print(f"   Максимум: {max(lengths)} символов")
@@ -197,7 +198,7 @@ def analyze_tier1(
                 skipped_count += 1
 
         print()
-        print(f"📈 Результаты перемещения:")
+        print("📈 Результаты перемещения:")
         print(f"   Перемещено в Tier 2: {moved_count}")
         print(f"   Пропущено (score < {threshold}): {skipped_count}")
         print()
