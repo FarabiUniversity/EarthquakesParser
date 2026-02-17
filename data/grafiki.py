@@ -527,7 +527,9 @@ def plot_error_analysis(error_df: pd.DataFrame, output_dir: str = "."):
 
     # 1. Топ-10 доменов по общему количеству ошибок
     ax1 = axes[0]
-    domain_errors = error_df.groupby("Domain")["Count"].sum().sort_values(ascending=False)
+    domain_errors = (
+        error_df.groupby("Domain")["Count"].sum().sort_values(ascending=False)
+    )
     top_domains = domain_errors.head(10)
 
     colors_gradient = plt.cm.Reds(np.linspace(0.4, 0.9, len(top_domains)))
@@ -539,7 +541,7 @@ def plot_error_analysis(error_df: pd.DataFrame, output_dir: str = "."):
     ax1.invert_yaxis()
 
     # Добавить значения на столбцах
-    for i, (bar, val) in enumerate(zip(bars, top_domains.values)):
+    for _i, (bar, val) in enumerate(zip(bars, top_domains.values)):
         ax1.text(
             val + 0.1,
             bar.get_y() + bar.get_height() / 2,
@@ -623,7 +625,9 @@ def _print_error_table(error_df: pd.DataFrame, top_domains: list):
             "severity_rank", axis=1
         )
 
-        display_df = category_summary[["Category", "Severity", "Count", "Penalty"]].copy()
+        display_df = category_summary[
+            ["Category", "Severity", "Count", "Penalty"]
+        ].copy()
         display_df["Penalty"] = display_df["Penalty"].apply(lambda x: f"{x:.1f}")
 
         print(tabulate(display_df, headers="keys", tablefmt="simple", showindex=False))
@@ -713,7 +717,10 @@ def generate_html_report(
     if not error_df.empty:
         # Топ-10 доменов по ошибкам
         top_error_domains = (
-            error_df.groupby("Domain")["Count"].sum().sort_values(ascending=False).head(10)
+            error_df.groupby("Domain")["Count"]
+            .sum()
+            .sort_values(ascending=False)
+            .head(10)
         )
 
         error_rows = []
