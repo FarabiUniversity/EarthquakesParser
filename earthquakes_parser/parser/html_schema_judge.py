@@ -355,7 +355,15 @@ class HTMLSchemaJudge:
             {
                 "score": float (0.0-10.0),
                 "confidence": float (0.0-1.0),
-                "reason": str
+                "reason": {
+                    "description": str,
+                    "evaluation_criteria": dict,
+                    "error_breakdown": list
+                },
+                "main_text_quality": float,
+                "date_quality": float,
+                "issues": list,
+                "suggestions": str
             }
         """
         try:
@@ -382,6 +390,15 @@ class HTMLSchemaJudge:
                 "   - Robustness: Will selectors break with minor HTML changes?\n"
                 "   - Reusability: Are selectors too page-specific "
                 "(hardcoded IDs)?\n\n"
+                "ERROR CATEGORIES (categorize each issue from 'issues' field):\n"
+                "   - Missing Content: Important content not captured (paragraphs, quotes, lists, etc)\n"
+                "   - Excessive Noise: Unwanted content captured (ads, navigation, sidebars, footers)\n"
+                "   - Wrong Element: Selector targets wrong element or doesn't exist in DOM\n"
+                "   - Fragility: Selector is too brittle (nth-child, long class chains, page-specific IDs)\n\n"
+                "SEVERITY LEVELS for penalty calculation:\n"
+                "   - critical: -2.0 points (missing main content, wrong date, selector doesn't exist)\n"
+                "   - medium: -1.0 point (noise, minor missing content, moderately fragile)\n"
+                "   - minor: -0.5 points (small fragility issues, edge cases)\n\n"
                 "SCORING GUIDE:\n"
                 f"  9-10: Excellent - precise, complete, robust selectors\n"
                 f"  7-8:  Good - captures most content with minor noise\n"
@@ -397,13 +414,31 @@ class HTMLSchemaJudge:
                 f"2. Identify what content would be captured\n"
                 f"3. Check for false positives (unwanted content)\n"
                 f"4. Check for false negatives (missed content)\n"
-                f"5. Provide specific examples of issues found\n\n"
+                f"5. Categorize each issue into one of the error categories\n"
+                f"6. Assign severity level to each error\n"
+                f"7. Calculate penalty scores\n\n"
                 "Return ONLY a JSON object wrapped in ```json``` blocks:\n"
                 "```json\n"
                 "{\n"
                 '  "score": <0.0-10.0>,\n'
                 '  "confidence": <0.0-1.0>,\n'
-                '  "reason": "<detailed explanation with specific examples>",\n'
+                '  "reason": {\n'
+                '    "description": "<overall explanation with specific examples>",\n'
+                '    "evaluation_criteria": {\n'
+                '      "precision": {"score": <0-10>, "max_score": 10, "issues_count": <int>},\n'
+                '      "recall": {"score": <0-10>, "max_score": 10, "issues_count": <int>},\n'
+                '      "robustness": {"score": <0-10>, "max_score": 10, "issues_count": <int>}\n'
+                '    },\n'
+                '    "error_breakdown": [\n'
+                '      {\n'
+                '        "category": "<Missing Content|Excessive Noise|Wrong Element|Fragility>",\n'
+                '        "severity": "<critical|medium|minor>",\n'
+                '        "count": <number of issues in this category>,\n'
+                '        "penalty": <total penalty for this category>,\n'
+                '        "examples": ["<issue example 1>", "<issue example 2>"]\n'
+                '      }\n'
+                '    ]\n'
+                '  },\n'
                 '  "main_text_quality": <0.0-10.0>,\n'
                 '  "date_quality": <0.0-10.0>,\n'
                 '  "issues": ["<specific issue 1>", "<specific issue 2>"],\n'

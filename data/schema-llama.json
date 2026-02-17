@@ -1,0 +1,315 @@
+[
+  {
+    "url": "https://dknews.kz/ru/eksklyuziv-dk/376856-pochemu-almaty-prodolzhaet-verit-sluham-o",
+    "domain": "dknews.kz",
+    "title": "Почему Алматы продолжает верить слухам о “разрушительном землетрясении” - и что говорят специалисты",
+    "schema": {
+      "domain": "dknews.kz",
+      "main_text_selectors": [
+        "#news_376856 .postBody",
+        "#news_376856 .text"
+      ],
+      "date_selector": "#news_376856 time",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://tengrinews.kz/kazakhstan_news/zemletryasenie-proizoshlo-v-46-kilometrah-ot-almatyi-590074/",
+    "domain": "tengrinews.kz",
+    "title": "Землетрясение произошло в 46 километрах от Алматы",
+    "schema": {
+      "domain": "tengrinews.kz",
+      "main_text_selectors": [
+        ".content_main",
+        ".content_main_meta",
+        ".content_main_meta_author",
+        ".content_main_meta_stat",
+        ".content_main_share",
+        ".content_main_thumb",
+        ".content_main_desc",
+        ".content_main_inner",
+        ".content_main_text"
+      ],
+      "date_selector": "#breadcrumbs > li:nth-child(3) > a > span",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://ru.wikipedia.org/wiki/%D0%97%D0%B5%D0%BC%D0%BB%D0%B5%D1%82%D1%80%D1%8F%D1%81%D0%B5%D0%BD%D0%B8%D1%8F_%D0%B2_%D0%90%D0%BB%D0%BC%D0%B0-%D0%90%D1%82%D0%B5",
+    "error": "extraction failed"
+  },
+  {
+    "url": "https://voshod-solnca.ru/earthquake/%D0%B0%D0%BB%D0%BC%D0%B0%D1%82%D1%8B",
+    "domain": "voshod-solnca.ru",
+    "title": "Карта землетрясений в Алматы (Казахстан) за сегодня, за февраль, за 2026 год. Онлайн мониторинг сейсмической активности.",
+    "schema": {
+      "domain": "voshod-solnca.ru",
+      "main_text_selectors": [
+        "#content > main:nth-child(1) > h1",
+        "#content > main:nth-child(2) > div.quick-links.quick-links--preload > menu > ul > li.nav-item.bg-transparent > span"
+      ],
+      "date_selector": "#sunbar-container > div#sunbar-info > p:last-of-type",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://www.volcanodiscovery.com/ru/zemletryaseniya/kazahstan/almati.html",
+    "domain": "www.volcanodiscovery.com",
+    "title": "Последние землетрясения, Алматы, за последние 7 дней",
+    "schema": {
+      "domain": "www.volcanodiscovery.com",
+      "main_text_selectors": [
+        "# Последние землетрясения, Алматы, за последние 7 дней",
+        "<h1 class=\"normal\">Последние землетрясения в Алматы, Казахстан, за последние 7 дней<span class=\"optional\"> - полный список и интерактивная карта</span></h1>",
+        "<table id=\"topSummary\" class=\"dataTable small\" style=\"display:block;margin:0 auto var(--paddingM)\">",
+        "  <tr><td onclick=\"document.getElementById('eqListAnchor').scrollIntoView()\"><b>Последний</b><div class=\"actionBtn btn-s\">Увидеть все</div></td>",
+        "    <td id=\"latestShownTop\" style=\"white-space:normal\"><b><a href=\"earthquakes/kazakhstan.html?quake=22724659\">Mag.&nbsp;<span class=\"magCircle mag2\">2.5</span> землетрясение Жетысуская область</a></b> - 96 km к востоку от <a class=\"secondaryLink\" href=\"place/12028/earthquakes/esik.html\">Есик</a>,  <a class=\"secondaryLink\" href=\"earthquakes/kazakhstan.html\">Казахстан</a> - <nowrap style=\"font-weight:normal\"><script>writeAge(1771194397)</script></nowrap></td>",
+        "  </tr><tr class=\"\"><td><b>Сильнейший за последние 7 дней</b></td>",
+        "    <td style=\"white-space:normal\"><b><a href=\"earthquakes/kazakhstan.html?quake=22720559\">Mag.&nbsp;<span class=\"magCircle mag4\">4.1</span> 26 km к западу от Жаркент</a></b> -  <a class=\"secondaryLink\" href=\"earthquakes/kazakhstan.html\">Казахстан</a> - <nowrap style=\"font-weight:normal\"><script>writeAge(1771067107)</script></nowrap></td>",
+        "  </tr></table>",
+        "<div class=\"feltBtnCont centered\" style=\"clear:right\"><a id=\"feltBtnTop\" class=\"actionBtn\" style=\"margin:0\" href=\"https://allquakes.com/app/report-a-quake.php\" title=\"Почувствовали землетрясение? Отчет!\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">Почувствовали землетрясение? Отчет!</a></div>",
+        "<style>.colorcell.appCta{margin-top:14px!important;padding:10px 12px!important;border-radius:10px!important;box-shadow:0 8px 18px rgba(0,0,0,.18)!important;text-transform:none!important;font-family:var(--baseFont)!important;font-size:var(--fontSizeS)!important;font-weight:400!important;line-height:1.2!important;text-align:left!important}",
+        "...</style>",
+        "<div class=\"appCta colorcell\" role=\"note\" aria-label=\"Scarica l’app Android\">",
+        "  <div class=\"appCtaRow\">",
+        "    <img class=\"appCtaIcon\" src=\"//volcanodiscovery.de/fileadmin/voldis/svg/Android_robot.svg\" alt=\"\" aria-hidden=\"true\" loading=\"lazy\" />",
+        "    <div class=\"appCtaText\"><b>Scarica l’app Android</b> <span style=\"font-size:92%\">avvisi e segnalazioni più rapide</span></div>",
+        "    <a class=\"appCtaBadge\" href=\"https://play.google.com/store/apps/details?id=com.volcanodiscovery.volcanodiscovery\" target=\"_blank\" rel=\"noopener noreferrer nofollow\" rel=\"noopener\">",
+        "      <img src=\"//volcanodiscovery.de/fileadmin/voldis/svg/GetItOnGooglePlay_Badge_Web_color_IT.svg\" alt=\"Get it on Google Play\" loading=\"lazy\" />",
+        "    </a>",
+        "  </div>",
+        "</div>"
+      ],
+      "date_selector": "#topSummary tr td:nth-child(1) > div.aStr",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://el.kz/ru/samoe_strashnoe_zemletryasenie_v_istorii_almati_252/",
+    "domain": "el.kz",
+    "title": "Самое страшное землетрясение в истории Алматы - el.kz",
+    "schema": {
+      "domain": "el.kz",
+      "main_text_selectors": [
+        "#main-content > div.uk-container.uk-position-relative > div.uk-grid.uk-grid > div.uk-width-2-3.uk-margin-medium-bottom.uk-padding-medium.uk-background-cover.uk-background-center",
+        "#bx_breadcrumb_0",
+        "#bx_breadcrumb_1",
+        "#bx_breadcrumb_2",
+        ".detail-news-header__d"
+      ],
+      "date_selector": "#bx_breadcrumb_0 > span",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://rus.azattyq.org/a/32871809.html",
+    "domain": "rus.azattyq.org",
+    "title": "Землетрясение в Алматы: в 2023 году было закуплено оборудование на 527 млн тенге для 11 из 16 сейсмостанций",
+    "schema": {
+      "domain": "rus.azattyq.org",
+      "main_text_selectors": [
+        "#content > main > div.container",
+        "#article-content"
+      ],
+      "date_selector": "#content > main > div.container > div.row > div.col-publishing-details.col-xs-12.col-md-8.col-md-offset-2 > div.publishing-details > span.date > time",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://www.zakon.kz/stati/6427518-zemletryaseniya-v-almaty-kazakhstanskiy-seysmolog-vyskazalsya-o-prognozakh-svoikh-kolleg.html",
+    "domain": "www.zakon.kz",
+    "title": "Землетрясения в Алматы: казахстанский сейсмолог высказался о прогнозах своих коллег ᐈ новость от 18:31, 14 марта 2024 на zakon.kz",
+    "schema": {
+      "domain": "www.zakon.kz",
+      "main_text_selectors": [
+        "#article > .article__content",
+        "#article > .description"
+      ],
+      "date_selector": "#article > .article__dateline > time",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://www.aa.com.tr/ru/%D0%BC%D0%B8%D1%80/%D0%BD%D0%B0-%D1%82%D0%B5%D1%80%D1%80%D0%B8%D1%82%D0%BE%D1%80%D0%B8%D0%B8-%D0%BA%D0%B8%D1%82%D0%B0%D1%8F-%D0%BF%D1%80%D0%BE%D0%B8%D0%B7%D0%BE%D1%88%D0%BB%D0%BE-%D0%B7%D0%B5%D0%BC%D0%BB%D0%B5%D1%82%D1%80%D1%8F%D1%81%D0%B5%D0%BD%D0%B8%D0%B5-%D0%BA%D0%BE%D1%82%D0%BE%D1%80%D0%BE%D0%B5-%D0%BE%D1%89%D1%83%D1%82%D0%B8%D0%BB%D0%B8-%D0%B2-%D0%B0%D0%BB%D0%BC%D0%B0%D1%82%D1%8B/3761964",
+    "error": "extraction failed"
+  },
+  {
+    "url": "https://dknews.kz/ru/v-strane/376600-v-almaty-proizoshlo-zemletryasenie-magnitudoy-6-7",
+    "domain": "dknews.kz",
+    "title": "В Алматы произошло землетрясение магнитудой 6,7 — данные МЧС",
+    "schema": {
+      "domain": "dknews.kz",
+      "main_text_selectors": [
+        ".newsInfo",
+        ".postBody > .text"
+      ],
+      "date_selector": ".time",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://rus.azattyq.org/a/32787857.html",
+    "domain": "rus.azattyq.org",
+    "title": "«Никогда так страшно не было». Как алматинцы пережили ночное землетрясение",
+    "schema": {
+      "domain": "rus.azattyq.org",
+      "main_text_selectors": [
+        "#content > main",
+        "#article-content"
+      ],
+      "date_selector": ".publishing-details .published time",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://tengrinews.kz/kazakhstan_news/almatintsam-prishlo-uvedomlenie-o-zemletryasenii-583905/",
+    "domain": "tengrinews.kz",
+    "title": "Землетрясение в Алматы: экстренные оповещения населению",
+    "schema": {
+      "domain": "tengrinews.kz",
+      "main_text_selectors": [
+        ".content_main",
+        ".content_main_meta",
+        ".content_main_meta_author",
+        ".content_main_meta_stat",
+        ".content_main_share",
+        ".content_main_thumb",
+        ".content_main_desc",
+        ".content_main_inner",
+        ".content_main_text"
+      ],
+      "date_selector": ".articleSection > meta[itemprop='datePublished']",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://prg.kz/document/?doc_id=31323760",
+    "domain": "prg.kz",
+    "title": "Землетрясение магнитудой 6.6 произошло в 225 км от Алматы | ИС Параграф",
+    "schema": {
+      "domain": "prg.kz",
+      "main_text_selectors": [
+        "#document-31323760"
+      ],
+      "date_selector": ".publish-info > div:nth-child(2) > span:first-letter:capitalize",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://tengrinews.kz/kazakhstan_news/poyavilis-dannyie-o-sile-zemletryaseniya-v-almatyi-587244/",
+    "domain": "tengrinews.kz",
+    "title": "Появились данные о силе землетрясения в Алматы",
+    "schema": {
+      "domain": "tengrinews.kz",
+      "main_text_selectors": [
+        ".content_main",
+        ".content_single",
+        ".content_main_text"
+      ],
+      "date_selector": "#breadcrumbs li:nth-child(3) span",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://ru.sputnik.kz/20240225/v-almaty-pochuvstvovali-zemletryasenie-42485286.html",
+    "domain": "ru.sputnik.kz",
+    "title": "В Алматы почувствовали землетрясение - 25.02.2024, Sputnik Казахстан",
+    "schema": {
+      "domain": "ru.sputnik.kz",
+      "main_text_selectors": [
+        ".article__text",
+        ".article__block[data-type='text'] .article__text"
+      ],
+      "date_selector": "#page > div.container.m-content > div.layout > div.article > div.article__meta > meta[itemprop='datePublished']",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://rus.azattyq.org/a/dvuhballnoe-zemletryasenie-proizoshlo-v-almaty-epitsentr-raspolozhen-v-kyrgyzstane/33436461.html",
+    "domain": "rus.azattyq.org",
+    "title": "Двухбалльное землетрясение произошло в Алматы, эпицентр расположен в Кыргызстане",
+    "schema": {
+      "domain": "rus.azattyq.org",
+      "main_text_selectors": [
+        "#article-content",
+        ".content-floated-wrap fb-quotable"
+      ],
+      "date_selector": "time[pubdate]",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://ru.wikipedia.org/wiki/%D0%97%D0%B5%D0%BC%D0%BB%D0%B5%D1%82%D1%80%D1%8F%D1%81%D0%B5%D0%BD%D0%B8%D0%B5_%D0%B2_%D0%A1%D0%B8%D0%BD%D1%8C%D1%86%D0%B7%D1%8F%D0%BD%D0%B5_(2024)",
+    "error": "extraction failed"
+  },
+  {
+    "url": "https://www.gov.kz/memleket/entities/emer/press/news/details/719139?lang=ru",
+    "domain": "www.gov.kz",
+    "title": "Информация о землетрясении",
+    "schema": {
+      "domain": "www.gov.kz",
+      "main_text_selectors": [
+        "#h1 > img",
+        "#h1 + p",
+        "#h1 + p + p",
+        "#h1 + p + p + p",
+        "#h1 + p + p + p + p",
+        "#h1 + p + p + p + p + p"
+      ],
+      "date_selector": "#h1 > img ~ p:contains('04 марта 2024г.')",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://kndc.kz/index.php/home-ru/kndcnews/227-operativnaya-informatsiya-o-proizoshedshem-zemletryasenii-23-01-2024-g",
+    "domain": "kndc.kz",
+    "title": "Казахстанский национальный центр данных - Оперативная информация  о произошедшем землетрясении 23.01.2024 г.",
+    "schema": {
+      "domain": "kndc.kz",
+      "main_text_selectors": [
+        "#jsn-maincontent > div.jsn-centercol > div.jsn-centercol_inner > div.jsn-pos-breadcrumbs",
+        "#jsn-mainbody-content > div.com-content > div.article > div.jsn-article-content"
+      ],
+      "date_selector": "#jsn-mainbody-content > div.com-content > div.article > p:nth-child(4) > strong",
+      "is_valid": true
+    },
+    "is_valid": true
+  },
+  {
+    "url": "https://tengrinews.kz/kazakhstan_news/opoveschenie-zemletryasenii-almatyi-dchs-soobschili-583908/",
+    "domain": "tengrinews.kz",
+    "title": "Подробности о землетрясении в районе Алматы",
+    "schema": {
+      "domain": "tengrinews.kz",
+      "main_text_selectors": [
+        ".content_main",
+        ".content_main_meta",
+        ".content_main_meta_author",
+        ".content_main_meta_stat",
+        ".content_main_meta_share",
+        ".content_main_thumb",
+        ".content_main_desc",
+        ".content_main_inner",
+        ".content_main_text"
+      ],
+      "date_selector": "#breadcrumbs > li:nth-child(3) > a > span",
+      "is_valid": true
+    },
+    "is_valid": true
+  }
+]

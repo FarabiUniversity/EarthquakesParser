@@ -76,6 +76,60 @@ def extract_detailed_metrics(data: dict) -> pd.DataFrame:
     return pd.DataFrame(details)
 
 
+def extract_error_metrics(data: dict) -> pd.DataFrame:
+    """Извлечение метрик по ошибкам из error_breakdown.
+
+    Returns:
+        DataFrame с колонками: Model, Domain, URL, Category, Severity,
+        Count, Penalty, Examples
+    """
+    models = data["models"]
+    error_data = []
+
+    for model_name, model_data in models.items():
+        for item in model_data["details"]:
+            if "gpt_judgment" not in item or item["gpt_judgment"] is None:
+                continue
+
+            judgment = item["gpt_judgment"]
+            reason = judgment.get("reason", {})
+
+            # Handle both old (string) and new (dict) reason format
+            if isinstance(reason, dict):
+                error_breakdown = reason.get("error_breakdown", [])
+
+                for error in error_breakdown:
+                    error_data.append(
+                        {
+                            "Model": model_name,
+                            "Domain": item["domain"],
+                            "URL": item["url"],
+                            "Category": error.get("category", "Unknown"),
+                            "Severity": error.get("severity", "unknown"),
+                            "Count": error.get("count", 0),
+                            "Penalty": error.get("penalty", 0.0),
+                            "Examples": "; ".join(error.get("examples", [])),
+                        }
+                    )
+            # Fallback: if no errors in breakdown, check if there are issues
+            elif judgment.get("issues"):
+                # For backward compatibility with old format
+                error_data.append(
+                    {
+                        "Model": model_name,
+                        "Domain": item["domain"],
+                        "URL": item["url"],
+                        "Category": "Unclassified",
+                        "Severity": "medium",
+                        "Count": len(judgment["issues"]),
+                        "Penalty": 0.0,
+                        "Examples": "; ".join(judgment["issues"][:3]),  # First 3 issues
+                    }
+                )
+
+    return pd.DataFrame(error_data)
+
+
 def print_summary_table(df: pd.DataFrame):
     """Вывод сводной таблицы."""
     print("\n" + "=" * 80)
@@ -454,8 +508,143 @@ def plot_stacked_metrics(df: pd.DataFrame, output_dir: str = "."):
     print(f"✅ Сохранено: {output_dir}/score_decomposition.png")
 
 
+def plot_error_analysis(error_df: pd.DataFrame, output_dir: str = "."):
+    """График анализа ошибок по источникам (доменам).
+
+    Создает:
+    1. Bar chart топ-10 доменов с наибольшим числом ошибок
+    2. Stacked bar chart распределения типов ошибок по топ-доменам
+    3. Таблицу детализации
+    """
+    if error_df.empty:
+        print("⚠️  Нет данных об ошибках для визуализации")
+        return
+
+    fig, axes = plt.subplots(2, 1, figsize=(14, 12))
+    fig.suptitle(
+        "Анализ ошибок по источникам (доменам)", fontsize=16, fontweight="bold"
+    )
+
+    # 1. Топ-10 доменов по общему количеству ошибок
+    ax1 = axes[0]
+    domain_errors = error_df.groupby("Domain")["Count"].sum().sort_values(ascending=False)
+    top_domains = domain_errors.head(10)
+
+    colors_gradient = plt.cm.Reds(np.linspace(0.4, 0.9, len(top_domains)))
+    bars = ax1.barh(range(len(top_domains)), top_domains.values, color=colors_gradient)
+    ax1.set_yticks(range(len(top_domains)))
+    ax1.set_yticklabels(top_domains.index)
+    ax1.set_xlabel("Количество ошибок")
+    ax1.set_title("Топ-10 доменов с наибольшим количеством ошибок")
+    ax1.invert_yaxis()
+
+    # Добавить значения на столбцах
+    for i, (bar, val) in enumerate(zip(bars, top_domains.values)):
+        ax1.text(
+            val + 0.1,
+            bar.get_y() + bar.get_height() / 2,
+            f"{int(val)}",
+            va="center",
+            fontweight="bold",
+        )
+
+    # 2. Stacked bar chart: распределение типов ошибок по топ-доменам
+    ax2 = axes[1]
+    top_domain_names = top_domains.index.tolist()
+    error_by_category = (
+        error_df[error_df["Domain"].isin(top_domain_names)]
+        .groupby(["Domain", "Category"])["Count"]
+        .sum()
+        .unstack(fill_value=0)
+    )
+
+    # Сортируем по тому же порядку что и в топ-10
+    error_by_category = error_by_category.reindex(top_domain_names)
+
+    category_colors = {
+        "Missing Content": "#e74c3c",
+        "Excessive Noise": "#f39c12",
+        "Wrong Element": "#9b59b6",
+        "Fragility": "#3498db",
+        "Unclassified": "#95a5a6",
+    }
+
+    x_pos = np.arange(len(error_by_category))
+    bottom = np.zeros(len(error_by_category))
+
+    for category in error_by_category.columns:
+        color = category_colors.get(category, "#95a5a6")
+        values = error_by_category[category].values
+        ax2.barh(x_pos, values, left=bottom, label=category, color=color)
+        bottom += values
+
+    ax2.set_yticks(x_pos)
+    ax2.set_yticklabels(error_by_category.index)
+    ax2.set_xlabel("Количество ошибок по категориям")
+    ax2.set_title("Распределение типов ошибок по топ-доменам")
+    ax2.legend(loc="lower right", fontsize=9)
+    ax2.invert_yaxis()
+
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/error_analysis.png", dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"✅ Сохранено: {output_dir}/error_analysis.png")
+
+    # 3. Создать детальную таблицу ошибок
+    _print_error_table(error_df, top_domain_names)
+
+
+def _print_error_table(error_df: pd.DataFrame, top_domains: list):
+    """Вывод таблицы ошибок по топ-доменам."""
+    print("\n" + "=" * 100)
+    print("📊 ДЕТАЛЬНАЯ СТАТИСТИКА ОШИБОК ПО ТОП-ДОМЕНАМ")
+    print("=" * 100 + "\n")
+
+    for domain in top_domains:
+        domain_errors = error_df[error_df["Domain"] == domain]
+        if domain_errors.empty:
+            continue
+
+        print(f"\n--- {domain} ---")
+
+        # Группировка по категориям
+        category_summary = (
+            domain_errors.groupby(["Category", "Severity"])
+            .agg({"Count": "sum", "Penalty": "sum", "Examples": lambda x: "; ".join(x)})
+            .reset_index()
+        )
+
+        # Сортировка: сначала критичные, потом средние, потом мелкие
+        severity_order = {"critical": 0, "medium": 1, "minor": 2, "unknown": 3}
+        category_summary["severity_rank"] = category_summary["Severity"].map(
+            severity_order
+        )
+        category_summary = category_summary.sort_values("severity_rank").drop(
+            "severity_rank", axis=1
+        )
+
+        display_df = category_summary[["Category", "Severity", "Count", "Penalty"]].copy()
+        display_df["Penalty"] = display_df["Penalty"].apply(lambda x: f"{x:.1f}")
+
+        print(tabulate(display_df, headers="keys", tablefmt="simple", showindex=False))
+
+        # Вывод примеров для каждой категории
+        for _, row in category_summary.iterrows():
+            examples = row["Examples"]
+            if examples and examples != "":
+                print(f"  Примеры ({row['Category']} - {row['Severity']}):")
+                for example in examples.split("; ")[:2]:  # Показать первые 2 примера
+                    if example.strip():
+                        print(f"    • {example[:100]}...")
+
+    print(f"\n{'=' * 100}\n")
+
+
 def generate_html_report(
-    summary_df: pd.DataFrame, details_df: pd.DataFrame, output_dir: str = "."
+    summary_df: pd.DataFrame,
+    details_df: pd.DataFrame,
+    error_df: pd.DataFrame,
+    output_dir: str = ".",
 ):
     """Генерация HTML отчёта."""
     # Генерируем строки таблицы для сводки
@@ -518,6 +707,63 @@ def generate_html_report(
         </table>
         """
         )
+
+    # Генерируем секцию анализа ошибок
+    error_section = ""
+    if not error_df.empty:
+        # Топ-10 доменов по ошибкам
+        top_error_domains = (
+            error_df.groupby("Domain")["Count"].sum().sort_values(ascending=False).head(10)
+        )
+
+        error_rows = []
+        for domain, total_count in top_error_domains.items():
+            domain_errors = error_df[error_df["Domain"] == domain]
+
+            # Группировка по категориям
+            category_breakdown = (
+                domain_errors.groupby("Category")["Count"].sum().to_dict()
+            )
+            total_penalty = domain_errors["Penalty"].sum()
+
+            # Форматируем категории
+            categories_str = ", ".join(
+                [f"{cat}: {count}" for cat, count in category_breakdown.items()]
+            )
+
+            error_rows.append(
+                f"""
+            <tr>
+                <td><strong>{domain}</strong></td>
+                <td>{int(total_count)}</td>
+                <td class="metric-bad">{total_penalty:.1f}</td>
+                <td style="font-size: 0.9em;">{categories_str}</td>
+            </tr>"""
+            )
+
+        error_section = f"""
+    <div class="summary-card">
+        <h2>🔍 Анализ ошибок по источникам</h2>
+        <p>Топ-10 доменов с наибольшим количеством ошибок в селекторах</p>
+        <table>
+            <tr>
+                <th>Домен</th>
+                <th>Всего ошибок</th>
+                <th>Штраф (баллы)</th>
+                <th>Распределение по категориям</th>
+            </tr>
+            {''.join(error_rows)}
+        </table>
+
+        <h3 style="margin-top: 30px;">Категории ошибок:</h3>
+        <ul style="line-height: 1.8;">
+            <li><strong>Missing Content</strong> (критичная): важный контент не извлечен</li>
+            <li><strong>Excessive Noise</strong> (средняя): извлечен лишний контент (реклама, навигация)</li>
+            <li><strong>Wrong Element</strong> (критичная): селектор указывает на неверный элемент</li>
+            <li><strong>Fragility</strong> (мелкая): хрупкие селекторы (nth-child, длинные цепочки)</li>
+        </ul>
+    </div>
+    """
 
     html_content = f"""
 <!DOCTYPE html>
@@ -616,8 +862,11 @@ def generate_html_report(
             <img src="quality_distribution.png" alt="Распределение качества">
             <img src="text_vs_date_quality.png" alt="Текст vs Дата">
             <img src="score_decomposition.png" alt="Декомпозиция счёта">
+            <img src="error_analysis.png" alt="Анализ ошибок">
         </div>
     </div>
+
+    {error_section}
 
     <div class="summary-card">
         <h2>Статистика по моделям</h2>
@@ -647,6 +896,7 @@ def main(json_path: str, output_dir: str = "data/grafiki"):
     print("📊 Извлечение метрик...")
     summary_df = extract_summary_metrics(data)
     details_df = extract_detailed_metrics(data)
+    error_df = extract_error_metrics(data)
 
     # Вывод таблиц в консоль
     print_summary_table(summary_df)
@@ -660,14 +910,17 @@ def main(json_path: str, output_dir: str = "data/grafiki"):
     plot_text_vs_date_quality(details_df, output_dir)
     plot_stacked_metrics(summary_df, output_dir)
 
+    print("\n🔍 Анализ ошибок...")
+    plot_error_analysis(error_df, output_dir)
+
     print("\n📄 Генерация HTML отчёта...")
-    generate_html_report(summary_df, details_df, output_dir)
+    generate_html_report(summary_df, details_df, error_df, output_dir)
 
     print("\n" + "=" * 80)
     print("✅ ГОТОВО! Все файлы сохранены в:", output_dir)
     print("=" * 80)
 
-    return summary_df, details_df
+    return summary_df, details_df, error_df
 
 
 if __name__ == "__main__":

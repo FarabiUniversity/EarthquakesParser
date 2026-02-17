@@ -69,7 +69,7 @@
 
     <div class="winner">
         🏆 Победитель: <strong>GPT_OSS</strong>
-        с итоговым счётом <strong>81.74/100</strong>
+        с итоговым счётом <strong>84.26/100</strong>
     </div>
 
     <div class="summary-card">
@@ -82,27 +82,27 @@
                 <th>GPT Quality</th>
                 <th>Final Score</th>
             </tr>
-
+            
             <tr>
                 <td><strong>GPT_OSS</strong></td>
                 <td>85.0%</td>
-                <td>88.8%</td>
-                <td>70.3%</td>
-                <td class="metric-good">81.74</td>
+                <td>96.5%</td>
+                <td>71.1%</td>
+                <td class="metric-good">84.26</td>
             </tr>
             <tr>
                 <td><strong>GEMMA</strong></td>
-                <td>80.0%</td>
-                <td>88.1%</td>
-                <td>61.6%</td>
-                <td class="metric-good">76.92</td>
+                <td>85.0%</td>
+                <td>92.4%</td>
+                <td>63.2%</td>
+                <td class="metric-good">80.68</td>
             </tr>
             <tr>
                 <td><strong>LLAMA</strong></td>
                 <td>85.0%</td>
-                <td>55.9%</td>
-                <td>47.5%</td>
-                <td class="metric-medium">65.02</td>
+                <td>52.4%</td>
+                <td>44.8%</td>
+                <td class="metric-medium">63.13</td>
             </tr>
         </table>
     </div>
@@ -116,12 +116,97 @@
             <img src="quality_distribution.png" alt="Распределение качества">
             <img src="text_vs_date_quality.png" alt="Текст vs Дата">
             <img src="score_decomposition.png" alt="Декомпозиция счёта">
+            <img src="error_analysis.png" alt="Анализ ошибок">
         </div>
     </div>
 
+    
+    <div class="summary-card">
+        <h2>🔍 Анализ ошибок по источникам</h2>
+        <p>Топ-10 доменов с наибольшим количеством ошибок в селекторах</p>
+        <table>
+            <tr>
+                <th>Домен</th>
+                <th>Всего ошибок</th>
+                <th>Штраф (баллы)</th>
+                <th>Распределение по категориям</th>
+            </tr>
+            
+            <tr>
+                <td><strong>tengrinews.kz</strong></td>
+                <td>50</td>
+                <td class="metric-bad">-64.5</td>
+                <td style="font-size: 0.9em;">Excessive Noise: 17, Fragility: 5, Minor Noise: 1, Missing Content: 21, Wrong Element: 6</td>
+            </tr>
+            <tr>
+                <td><strong>www.volcanodiscovery.com</strong></td>
+                <td>28</td>
+                <td class="metric-bad">-44.5</td>
+                <td style="font-size: 0.9em;">Excessive Noise: 2, Fragility: 5, Missing Content: 6, Wrong Element: 15</td>
+            </tr>
+            <tr>
+                <td><strong>dknews.kz</strong></td>
+                <td>20</td>
+                <td class="metric-bad">-25.5</td>
+                <td style="font-size: 0.9em;">Excessive Noise: 3, Fragility: 4, Missing Content: 11, Wrong Element: 2</td>
+            </tr>
+            <tr>
+                <td><strong>rus.azattyq.org</strong></td>
+                <td>14</td>
+                <td class="metric-bad">-4.5</td>
+                <td style="font-size: 0.9em;">Excessive Noise: 2, Fragility: 5, Missing Content: 3, Wrong Element: 4</td>
+            </tr>
+            <tr>
+                <td><strong>voshod-solnca.ru</strong></td>
+                <td>12</td>
+                <td class="metric-bad">-19.0</td>
+                <td style="font-size: 0.9em;">Excessive Noise: 2, Missing Content: 6, Wrong Element: 4</td>
+            </tr>
+            <tr>
+                <td><strong>www.gov.kz</strong></td>
+                <td>12</td>
+                <td class="metric-bad">-20.5</td>
+                <td style="font-size: 0.9em;">Fragility: 1, Missing Content: 1, Wrong Element: 10</td>
+            </tr>
+            <tr>
+                <td><strong>kndc.kz</strong></td>
+                <td>10</td>
+                <td class="metric-bad">-10.5</td>
+                <td style="font-size: 0.9em;">Excessive Noise: 3, Fragility: 2, Missing Content: 1, Wrong Element: 4</td>
+            </tr>
+            <tr>
+                <td><strong>el.kz</strong></td>
+                <td>9</td>
+                <td class="metric-bad">-14.0</td>
+                <td style="font-size: 0.9em;">Excessive Noise: 1, Fragility: 2, Wrong Element: 6</td>
+            </tr>
+            <tr>
+                <td><strong>prg.kz</strong></td>
+                <td>9</td>
+                <td class="metric-bad">-7.0</td>
+                <td style="font-size: 0.9em;">Excessive Noise: 2, Missing Content: 1, Wrong Element: 6</td>
+            </tr>
+            <tr>
+                <td><strong>www.zakon.kz</strong></td>
+                <td>9</td>
+                <td class="metric-bad">-12.5</td>
+                <td style="font-size: 0.9em;">Excessive Noise: 2, Minor: 1, Missing Content: 3, Wrong Element: 3</td>
+            </tr>
+        </table>
+
+        <h3 style="margin-top: 30px;">Категории ошибок:</h3>
+        <ul style="line-height: 1.8;">
+            <li><strong>Missing Content</strong> (критичная): важный контент не извлечен</li>
+            <li><strong>Excessive Noise</strong> (средняя): извлечен лишний контент (реклама, навигация)</li>
+            <li><strong>Wrong Element</strong> (критичная): селектор указывает на неверный элемент</li>
+            <li><strong>Fragility</strong> (мелкая): хрупкие селекторы (nth-child, длинные цепочки)</li>
+        </ul>
+    </div>
+    
+
     <div class="summary-card">
         <h2>Статистика по моделям</h2>
-
+        
         <h3>GEMMA</h3>
         <table>
             <tr>
@@ -132,26 +217,26 @@
                 <th>Main Text Quality</th>
                 <th>Date Quality</th>
             </tr>
-
+            
             <tr>
                 <td>dknews.kz</td>
                 <td>9174</td>
                 <td>1.00</td>
-                <td class="metric-good">8.6</td>
-                <td>8.5</td>
-                <td>9.0</td>
+                <td class="metric-medium">5.1</td>
+                <td>3.0</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
-                <td>1373</td>
+                <td>2607</td>
                 <td>1.00</td>
-                <td class="metric-medium">5.0</td>
-                <td>3.0</td>
-                <td>9.0</td>
+                <td class="metric-good">7.6</td>
+                <td>8.5</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>voshod-solnca.ru</td>
-                <td>2180</td>
+                <td>2189</td>
                 <td>1.00</td>
                 <td class="metric-bad">4.1</td>
                 <td>2.0</td>
@@ -159,110 +244,118 @@
             </tr>
             <tr>
                 <td>www.volcanodiscovery.com</td>
-                <td>2236</td>
-                <td>0.70</td>
-                <td class="metric-bad">3.2</td>
-                <td>4.0</td>
-                <td>1.5</td>
+                <td>12258</td>
+                <td>1.00</td>
+                <td class="metric-medium">6.2</td>
+                <td>8.0</td>
+                <td>2.0</td>
             </tr>
             <tr>
                 <td>el.kz</td>
                 <td>3092</td>
                 <td>1.00</td>
-                <td class="metric-good">8.7</td>
-                <td>9.0</td>
-                <td>9.0</td>
+                <td class="metric-good">8.0</td>
+                <td>9.5</td>
+                <td>3.0</td>
             </tr>
             <tr>
                 <td>rus.azattyq.org</td>
-                <td>4537</td>
-                <td>0.70</td>
-                <td class="metric-good">9.3</td>
-                <td>9.0</td>
+                <td>4448</td>
+                <td>1.00</td>
+                <td class="metric-good">8.2</td>
+                <td>7.5</td>
                 <td>10.0</td>
             </tr>
             <tr>
                 <td>www.zakon.kz</td>
                 <td>5024</td>
                 <td>1.00</td>
-                <td class="metric-medium">6.8</td>
-                <td>6.0</td>
-                <td>9.5</td>
+                <td class="metric-good">8.2</td>
+                <td>7.5</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>dknews.kz</td>
-                <td>2242</td>
+                <td>2120</td>
                 <td>1.00</td>
-                <td class="metric-medium">5.0</td>
-                <td>3.0</td>
+                <td class="metric-good">7.3</td>
                 <td>9.0</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>rus.azattyq.org</td>
-                <td>6251</td>
+                <td>5958</td>
                 <td>1.00</td>
-                <td class="metric-good">8.3</td>
+                <td class="metric-good">7.8</td>
                 <td>8.0</td>
                 <td>9.0</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
-                <td>1657</td>
+                <td>1647</td>
                 <td>1.00</td>
-                <td class="metric-good">8.6</td>
-                <td>9.2</td>
-                <td>9.5</td>
+                <td class="metric-bad">3.4</td>
+                <td>6.0</td>
+                <td>9.0</td>
             </tr>
             <tr>
                 <td>prg.kz</td>
-                <td>3145</td>
+                <td>1001</td>
+                <td>1.00</td>
+                <td class="metric-bad">2.0</td>
+                <td>0.0</td>
+                <td>0.0</td>
+            </tr>
+            <tr>
+                <td>tengrinews.kz</td>
+                <td>8283</td>
                 <td>0.70</td>
-                <td class="metric-bad">1.5</td>
-                <td>1.0</td>
-                <td>1.0</td>
+                <td class="metric-medium">6.0</td>
+                <td>7.7</td>
+                <td>2.0</td>
             </tr>
             <tr>
                 <td>ru.sputnik.kz</td>
                 <td>1946</td>
                 <td>1.00</td>
-                <td class="metric-good">8.7</td>
-                <td>9.0</td>
+                <td class="metric-good">9.0</td>
                 <td>8.5</td>
+                <td>9.5</td>
             </tr>
             <tr>
                 <td>rus.azattyq.org</td>
                 <td>967</td>
                 <td>1.00</td>
-                <td class="metric-good">8.6</td>
-                <td>8.5</td>
-                <td>9.0</td>
+                <td class="metric-good">9.5</td>
+                <td>10.0</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>www.gov.kz</td>
                 <td>0</td>
                 <td>0.30</td>
-                <td class="metric-bad">3.0</td>
+                <td class="metric-bad">0.0</td>
                 <td>2.0</td>
-                <td>5.0</td>
+                <td>1.0</td>
             </tr>
             <tr>
                 <td>kndc.kz</td>
                 <td>3355</td>
                 <td>0.70</td>
-                <td class="metric-bad">3.2</td>
-                <td>4.5</td>
-                <td>0.0</td>
+                <td class="metric-good">7.0</td>
+                <td>9.0</td>
+                <td>2.0</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
-                <td>966</td>
+                <td>904</td>
                 <td>1.00</td>
-                <td class="metric-medium">6.0</td>
+                <td class="metric-good">8.0</td>
                 <td>7.5</td>
-                <td>1.0</td>
+                <td>9.0</td>
             </tr>
         </table>
-
+        
         <h3>GPT_OSS</h3>
         <table>
             <tr>
@@ -273,145 +366,145 @@
                 <th>Main Text Quality</th>
                 <th>Date Quality</th>
             </tr>
-
+            
             <tr>
                 <td>dknews.kz</td>
                 <td>3586</td>
                 <td>1.00</td>
-                <td class="metric-good">7.2</td>
-                <td>6.0</td>
+                <td class="metric-bad">2.9</td>
+                <td>7.0</td>
                 <td>10.0</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
-                <td>1182</td>
-                <td>0.70</td>
-                <td class="metric-medium">6.5</td>
-                <td>5.5</td>
+                <td>1122</td>
+                <td>1.00</td>
+                <td class="metric-good">7.8</td>
+                <td>8.0</td>
                 <td>9.0</td>
             </tr>
             <tr>
                 <td>voshod-solnca.ru</td>
-                <td>1421</td>
+                <td>2085</td>
                 <td>1.00</td>
-                <td class="metric-medium">5.8</td>
-                <td>5.0</td>
-                <td>9.5</td>
+                <td class="metric-good">8.0</td>
+                <td>8.5</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>www.volcanodiscovery.com</td>
-                <td>8833</td>
-                <td>0.70</td>
-                <td class="metric-good">8.8</td>
-                <td>8.5</td>
-                <td>9.5</td>
+                <td>12227</td>
+                <td>1.00</td>
+                <td class="metric-bad">2.0</td>
+                <td>2.5</td>
+                <td>9.0</td>
             </tr>
             <tr>
                 <td>el.kz</td>
                 <td>3092</td>
                 <td>1.00</td>
-                <td class="metric-good">8.5</td>
-                <td>8.0</td>
-                <td>9.0</td>
+                <td class="metric-good">9.6</td>
+                <td>9.8</td>
+                <td>9.7</td>
             </tr>
             <tr>
                 <td>rus.azattyq.org</td>
                 <td>2087</td>
                 <td>1.00</td>
-                <td class="metric-good">9.0</td>
-                <td>9.0</td>
-                <td>9.0</td>
+                <td class="metric-good">9.8</td>
+                <td>9.8</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>www.zakon.kz</td>
                 <td>4807</td>
                 <td>1.00</td>
-                <td class="metric-good">7.6</td>
-                <td>7.0</td>
-                <td>9.0</td>
+                <td class="metric-good">8.0</td>
+                <td>8.0</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>dknews.kz</td>
                 <td>2114</td>
-                <td>1.00</td>
-                <td class="metric-good">8.8</td>
-                <td>8.5</td>
-                <td>9.5</td>
+                <td>0.70</td>
+                <td class="metric-medium">5.5</td>
+                <td>7.0</td>
+                <td>8.7</td>
             </tr>
             <tr>
                 <td>rus.azattyq.org</td>
-                <td>0</td>
-                <td>0.00</td>
-                <td class="metric-bad">2.8</td>
-                <td>0.0</td>
-                <td>9.5</td>
+                <td>3251</td>
+                <td>1.00</td>
+                <td class="metric-good">9.0</td>
+                <td>8.0</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
-                <td>533</td>
-                <td>1.00</td>
-                <td class="metric-good">7.0</td>
-                <td>6.0</td>
-                <td>9.0</td>
+                <td>649</td>
+                <td>0.70</td>
+                <td class="metric-good">7.5</td>
+                <td>7.5</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>prg.kz</td>
-                <td>1557</td>
+                <td>1811</td>
                 <td>1.00</td>
-                <td class="metric-bad">3.0</td>
+                <td class="metric-bad">4.1</td>
                 <td>2.0</td>
-                <td>1.5</td>
+                <td>9.0</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
                 <td>994</td>
                 <td>1.00</td>
-                <td class="metric-good">7.6</td>
-                <td>7.0</td>
-                <td>9.0</td>
+                <td class="metric-good">8.0</td>
+                <td>8.0</td>
+                <td>10.0</td>
             </tr>
             <tr>
                 <td>ru.sputnik.kz</td>
-                <td>975</td>
+                <td>901</td>
                 <td>1.00</td>
-                <td class="metric-good">8.0</td>
-                <td>7.5</td>
-                <td>9.5</td>
+                <td class="metric-medium">6.9</td>
+                <td>6.0</td>
+                <td>9.0</td>
             </tr>
             <tr>
                 <td>rus.azattyq.org</td>
                 <td>1016</td>
                 <td>1.00</td>
-                <td class="metric-good">8.5</td>
-                <td>8.5</td>
+                <td class="metric-good">9.5</td>
+                <td>10.0</td>
                 <td>9.0</td>
             </tr>
             <tr>
                 <td>www.gov.kz</td>
                 <td>904</td>
                 <td>1.00</td>
-                <td class="metric-medium">5.8</td>
-                <td>7.5</td>
-                <td>2.0</td>
+                <td class="metric-medium">5.9</td>
+                <td>8.0</td>
+                <td>2.5</td>
             </tr>
             <tr>
                 <td>kndc.kz</td>
-                <td>3355</td>
-                <td>0.70</td>
-                <td class="metric-medium">6.3</td>
+                <td>3312</td>
+                <td>1.00</td>
+                <td class="metric-good">7.0</td>
+                <td>8.0</td>
                 <td>9.0</td>
-                <td>0.0</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
-                <td>747</td>
+                <td>778</td>
                 <td>1.00</td>
-                <td class="metric-good">8.3</td>
-                <td>7.5</td>
+                <td class="metric-good">9.3</td>
+                <td>9.0</td>
                 <td>10.0</td>
             </tr>
         </table>
-
+        
         <h3>LLAMA</h3>
         <table>
             <tr>
@@ -422,145 +515,145 @@
                 <th>Main Text Quality</th>
                 <th>Date Quality</th>
             </tr>
-
+            
             <tr>
                 <td>dknews.kz</td>
                 <td>8588</td>
                 <td>1.00</td>
-                <td class="metric-good">7.3</td>
-                <td>6.5</td>
+                <td class="metric-medium">6.3</td>
+                <td>8.0</td>
                 <td>9.0</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
-                <td>0</td>
-                <td>0.00</td>
-                <td class="metric-bad">2.7</td>
-                <td>0.0</td>
-                <td>9.0</td>
+                <td>4196</td>
+                <td>0.70</td>
+                <td class="metric-bad">1.5</td>
+                <td>3.0</td>
+                <td>1.0</td>
             </tr>
             <tr>
                 <td>voshod-solnca.ru</td>
                 <td>0</td>
                 <td>0.30</td>
-                <td class="metric-bad">4.0</td>
+                <td class="metric-bad">4.1</td>
                 <td>2.0</td>
-                <td>9.0</td>
+                <td>9.5</td>
             </tr>
             <tr>
                 <td>www.volcanodiscovery.com</td>
-                <td>7035</td>
-                <td>1.00</td>
-                <td class="metric-bad">4.0</td>
-                <td>2.0</td>
-                <td>8.0</td>
-            </tr>
-            <tr>
-                <td>el.kz</td>
-                <td>0</td>
-                <td>0.30</td>
-                <td class="metric-good">7.0</td>
-                <td>6.5</td>
-                <td>9.5</td>
-            </tr>
-            <tr>
-                <td>rus.azattyq.org</td>
-                <td>2511</td>
-                <td>0.70</td>
-                <td class="metric-bad">2.1</td>
-                <td>3.0</td>
-                <td>0.0</td>
-            </tr>
-            <tr>
-                <td>www.zakon.kz</td>
                 <td>0</td>
                 <td>0.00</td>
-                <td class="metric-medium">5.0</td>
-                <td>3.0</td>
-                <td>9.5</td>
-            </tr>
-            <tr>
-                <td>dknews.kz</td>
-                <td>2148</td>
-                <td>0.70</td>
-                <td class="metric-bad">4.5</td>
-                <td>6.5</td>
-                <td>0.0</td>
-            </tr>
-            <tr>
-                <td>rus.azattyq.org</td>
-                <td>6810</td>
-                <td>0.70</td>
-                <td class="metric-medium">6.7</td>
-                <td>5.5</td>
-                <td>9.5</td>
-            </tr>
-            <tr>
-                <td>tengrinews.kz</td>
-                <td>3421</td>
-                <td>0.70</td>
                 <td class="metric-bad">2.5</td>
                 <td>3.0</td>
                 <td>1.0</td>
             </tr>
             <tr>
-                <td>prg.kz</td>
+                <td>el.kz</td>
+                <td>44</td>
+                <td>0.00</td>
+                <td class="metric-bad">2.5</td>
+                <td>4.0</td>
+                <td>1.0</td>
+            </tr>
+            <tr>
+                <td>rus.azattyq.org</td>
+                <td>2395</td>
+                <td>0.70</td>
+                <td class="metric-good">8.0</td>
+                <td>9.0</td>
+                <td>2.0</td>
+            </tr>
+            <tr>
+                <td>www.zakon.kz</td>
                 <td>0</td>
                 <td>0.00</td>
                 <td class="metric-bad">1.5</td>
-                <td>0.5</td>
-                <td>0.3</td>
+                <td>0.0</td>
+                <td>0.0</td>
+            </tr>
+            <tr>
+                <td>dknews.kz</td>
+                <td>2148</td>
+                <td>0.70</td>
+                <td class="metric-medium">5.8</td>
+                <td>8.0</td>
+                <td>9.5</td>
+            </tr>
+            <tr>
+                <td>rus.azattyq.org</td>
+                <td>6809</td>
+                <td>1.00</td>
+                <td class="metric-good">8.1</td>
+                <td>8.5</td>
+                <td>9.0</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
-                <td>4348</td>
+                <td>2763</td>
                 <td>0.70</td>
-                <td class="metric-bad">2.5</td>
-                <td>2.0</td>
+                <td class="metric-bad">2.2</td>
+                <td>3.1</td>
                 <td>0.0</td>
+            </tr>
+            <tr>
+                <td>prg.kz</td>
+                <td>1810</td>
+                <td>0.70</td>
+                <td class="metric-bad">4.1</td>
+                <td>5.0</td>
+                <td>2.0</td>
+            </tr>
+            <tr>
+                <td>tengrinews.kz</td>
+                <td>8439</td>
+                <td>0.70</td>
+                <td class="metric-bad">4.5</td>
+                <td>7.0</td>
+                <td>2.0</td>
             </tr>
             <tr>
                 <td>ru.sputnik.kz</td>
                 <td>1727</td>
                 <td>0.70</td>
-                <td class="metric-medium">6.8</td>
-                <td>5.5</td>
-                <td>9.5</td>
+                <td class="metric-good">8.0</td>
+                <td>5.0</td>
+                <td>9.0</td>
             </tr>
             <tr>
                 <td>rus.azattyq.org</td>
                 <td>1190</td>
                 <td>1.00</td>
-                <td class="metric-good">8.3</td>
-                <td>8.0</td>
+                <td class="metric-medium">6.5</td>
+                <td>9.0</td>
                 <td>9.0</td>
             </tr>
             <tr>
                 <td>www.gov.kz</td>
-                <td>1283</td>
-                <td>1.00</td>
-                <td class="metric-medium">6.2</td>
-                <td>8.0</td>
-                <td>2.0</td>
+                <td>0</td>
+                <td>0.00</td>
+                <td class="metric-bad">0.0</td>
+                <td>0.0</td>
+                <td>0.0</td>
             </tr>
             <tr>
                 <td>kndc.kz</td>
                 <td>0</td>
                 <td>0.00</td>
-                <td class="metric-medium">6.2</td>
-                <td>8.0</td>
-                <td>2.0</td>
+                <td class="metric-good">7.1</td>
+                <td>7.0</td>
+                <td>7.5</td>
             </tr>
             <tr>
                 <td>tengrinews.kz</td>
-                <td>1009</td>
+                <td>2735</td>
                 <td>0.70</td>
-                <td class="metric-bad">3.5</td>
-                <td>5.0</td>
-                <td>0.0</td>
+                <td class="metric-bad">3.4</td>
+                <td>4.0</td>
+                <td>2.0</td>
             </tr>
         </table>
-
+        
     </div>
 
     <footer style="text-align: center; margin-top: 40px; color: #7f8c8d;">
