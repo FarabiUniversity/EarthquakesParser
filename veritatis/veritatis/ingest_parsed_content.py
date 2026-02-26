@@ -192,8 +192,12 @@ def normalize_main_text(value) -> str:
     return str(value)
 
 
-def fetch_parsed_content(offset: int, limit: int) -> List[Dict[str, Any]]:
-    """Fetch a page of rows from Supabase `parsed_content`.
+def fetch_parsed_content(
+    offset: int,
+    limit: int,
+    status: str = "parsed",
+) -> List[Dict[str, Any]]:
+    """Fetch a page of rows from Supabase `parsed_content` for a given status.
 
     Tries ordering by `parsed_at` if present; falls back to ordering by `id`.
     """
@@ -204,7 +208,7 @@ def fetch_parsed_content(offset: int, limit: int) -> List[Dict[str, Any]]:
         response = (
             client.table("parsed_content")
             .select("id, main_text, search_result_id, parsed_at")
-            .eq("status", "parsed")
+            .eq("status", status)
             .order("parsed_at", desc=False)
             .range(offset, offset + limit - 1)
             .execute()
@@ -217,7 +221,7 @@ def fetch_parsed_content(offset: int, limit: int) -> List[Dict[str, Any]]:
         response = (
             client.table("parsed_content")
             .select("id, main_text, search_result_id")
-            .eq("status", "parsed")
+            .eq("status", status)
             .order("id", desc=False)
             .range(offset, offset + limit - 1)
             .execute()

@@ -33,47 +33,10 @@ from __future__ import annotations
 import argparse
 import os
 import time
-from typing import Any, Dict, List, cast
-
-from postgrest.exceptions import APIError
 
 from veritatis.ingest_parsed_content import BATCH_SIZE as DEFAULT_BATCH_SIZE
 from veritatis.ingest_parsed_content import SLEEP_BETWEEN_BATCHES as DEFAULT_SLEEP
-from veritatis.ingest_parsed_content import _get_supabase_client, send_to_ingest
-
-
-def fetch_content_by_status(
-    status: str,
-    offset: int,
-    limit: int,
-) -> List[Dict[str, Any]]:
-    """Fetch a page of rows from Supabase `parsed_content` for a given status."""
-    client = _get_supabase_client()
-
-    # Try to use parsed_at ordering if the column exists; fall back to id ordering.
-    try:
-        response = (
-            client.table("parsed_content")
-            .select("id, main_text, search_result_id, parsed_at")
-            .eq("status", status)
-            .order("parsed_at", desc=False)
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
-        return cast(List[Dict[str, Any]], response.data)
-    except APIError as e:
-        msg = str(e)
-        if "parsed_at" not in msg:
-            raise
-        response = (
-            client.table("parsed_content")
-            .select("id, main_text, search_result_id")
-            .eq("status", status)
-            .order("id", desc=False)
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
-        return cast(List[Dict[str, Any]], response.data)
+from veritatis.ingest_parsed_content import fetch_parsed_content, send_to_ingest
 
 
 def parse_args() -> argparse.Namespace:
@@ -131,7 +94,7 @@ def main() -> None:
         if max_records:
             limit = min(limit, max_records - processed)
 
-        batch = fetch_content_by_status(status, offset, limit)
+        batch = fetch_parsed_content(offset, limit, status=status)
         if not batch:
             print("✅ No more records to re-ingest.")
             break
