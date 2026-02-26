@@ -21,12 +21,11 @@ logger = logging.getLogger(__name__)
 class SearchResult:
     """Container for a single search result with metadata."""
 
-    id: str
-    content: str
-    source_url: str
+    iid: str
+    tier: int
     credibility_score: float
-    ingested_timestamp: int
-    supabase_id: str
+    date: int
+    domain: str
     similarity_score: float  # COSINE distance (higher = more similar)
     is_relevant: bool
 
@@ -115,6 +114,7 @@ def search_with_relevance_filter(
     top_k: int = 10,
     relevance_threshold: Optional[float] = None,
     use_adaptive_threshold: bool = False,
+    tier: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Perform vector search with automatic relevance filtering.
@@ -125,6 +125,7 @@ def search_with_relevance_filter(
         top_k: Number of results to retrieve before filtering
         relevance_threshold: Minimum similarity score (None = use default)
         use_adaptive_threshold: Calculate threshold from result distribution
+        tier: Optional tier filter (1, 2, or 3)
 
     Returns:
         Dictionary with relevant results, filtered results, and metadata
@@ -140,18 +141,20 @@ def search_with_relevance_filter(
 
     search_params = {"metric_type": "COSINE", "params": {"ef": 128}}
 
+    expr = f"tier == {tier}" if tier is not None else None
+
     search_results = collection.search(
         data=[query_embedding],
         anns_field="embedding",
         param=search_params,
         limit=top_k,
+        expr=expr,
         output_fields=[
-            "id",
-            "content",
-            "source_url",
+            "iid",
+            "tier",
             "credibility_score",
-            "ingested_timestamp",
-            "supabase_id",
+            "date",
+            "domain",
         ],
     )
 
@@ -159,12 +162,11 @@ def search_with_relevance_filter(
     all_results = []
     for hit in search_results[0]:
         result = SearchResult(
-            id=str(hit.id),
-            content=str(getattr(hit, "content", "")),
-            source_url=str(getattr(hit, "source_url", "")),
+            iid=str(hit.id),
+            tier=int(getattr(hit, "tier", 0)),
             credibility_score=float(getattr(hit, "credibility_score", 0.0)),
-            ingested_timestamp=int(getattr(hit, "ingested_timestamp", 0)),
-            supabase_id=str(getattr(hit, "supabase_id", "")),
+            date=int(getattr(hit, "date", 0)),
+            domain=str(getattr(hit, "domain", "")),
             similarity_score=float(hit.distance),
             is_relevant=False,  # Will be set by filter
         )
@@ -200,19 +202,18 @@ def search_with_relevance_filter(
         "irrelevant_count": len(irrelevant_results),
         "relevant_results": [
             {
-                "id": r.id,
-                "content": r.content,
-                "source_url": r.source_url,
+                "iid": r.iid,
+                "tier": r.tier,
                 "credibility_score": r.credibility_score,
-                "ingested_timestamp": r.ingested_timestamp,
-                "supabase_id": r.supabase_id,
+                "date": r.date,
+                "domain": r.domain,
                 "similarity_score": r.similarity_score,
             }
             for r in relevant_results
         ],
         "filtered_results": [
             {
-                "id": r.id,
+                "iid": r.iid,
                 "similarity_score": r.similarity_score,
                 "reason": (
                     f"Below threshold " f"({r.similarity_score:.3f} < {threshold:.3f})"

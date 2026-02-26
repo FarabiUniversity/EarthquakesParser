@@ -1,17 +1,22 @@
-"""Pull parsed content from Supabase and ingest into the Veritatis API.
+"""Pull parsed content from Supabase and ingest into Veritatis (Milvus).
 
-This script reads rows from the Supabase `parsed_content` table where
-`status='parsed'`, normalizes and chunks their `main_text`, POSTs tier-1 records
-to the local `/ingest` API, and then marks those rows as `status='ingested'`.
+This script reads rows from the Supabase ``parsed_content`` table where
+``status='parsed'``, normalises their ``main_text``, generates an embedding,
+and inserts a single record per row into the unified ``veritatis`` Milvus
+collection at **tier 1**.  The text itself is *not* stored in Milvus.
+
+After successful ingestion the Supabase rows are marked ``status='ingested'``.
 """
 
 import json
 import os
 import time
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Sequence, cast
 
-import requests
 from postgrest.exceptions import APIError
+
+from veritatis.ingestion import ingest_record
 
 try:
     from dotenv import load_dotenv
@@ -32,8 +37,8 @@ _SUPABASE_CLIENT: Any = None
 def _get_supabase_client():
     """Return a cached Supabase client.
 
-    Prefers reusing the shared connector from `earthquakes_parser` when importable.
-    Falls back to direct `supabase.create_client` to keep this script runnable in
+    Prefers reusing the shared connector from ``earthquakes_parser`` when importable.
+    Falls back to direct ``supabase.create_client`` to keep this script runnable in
     a standalone Veritatis environment.
     """
     global _SUPABASE_CLIENT
@@ -58,100 +63,42 @@ def _get_supabase_client():
         return _SUPABASE_CLIENT
 
 
-# Default to the local FastAPI port used in this repo.
-# In docker-compose.yml the API is exposed on 8000.
-INGEST_URL = os.getenv("INGEST_URL", "http://localhost:8000/ingest")
-
 BATCH_SIZE = 100
 SLEEP_BETWEEN_BATCHES = 0.2  # seconds
 
-# Milvus VARCHAR limits are byte-based; keep a safety margin.
-# NOTE: Veritatis Milvus schema uses FieldSchema(name="content", max_length=10000)
-# which is enforced as a character length check. Keep a safety margin.
-MAX_TEXT_CHARS = 9500
-# Milvus VARCHAR limits are effectively UTF-8 byte-based; keep a safety margin.
-MAX_TEXT_BYTES = 9500
+
+# ---------------------------------------------------------------------------
+# Date helpers
+# ---------------------------------------------------------------------------
 
 
-def _utf8_len(s: str) -> int:
-    """Return the UTF-8 byte length of a string."""
-    return len(s.encode("utf-8"))
+def _parse_date_to_epoch_ms(date_value: Any) -> int:
+    """Convert a Supabase timestamptz string to epoch milliseconds.
+
+    Returns 0 when the value is missing or unparseable.
+    """
+    if not date_value:
+        return 0
+    if isinstance(date_value, (int, float)):
+        return int(date_value)
+    try:
+        dt = datetime.fromisoformat(str(date_value))
+        return int(dt.timestamp() * 1000)
+    except (ValueError, TypeError):
+        return 0
 
 
-def chunk_text(
-    text: str,
-    max_bytes: int = MAX_TEXT_BYTES,
-    max_chars: int = MAX_TEXT_CHARS,
-) -> List[str]:
-    """Split text into chunks that fit both byte and character limits."""
-    text = (text or "").strip()
-    if not text:
-        return []
-    if len(text) <= max_chars and _utf8_len(text) <= max_bytes:
-        return [text]
-
-    words = text.split()
-    chunks: List[str] = []
-    current: List[str] = []
-    current_bytes = 0
-    current_chars = 0
-
-    for w in words:
-        w_bytes = _utf8_len(w)
-        w_chars = len(w)
-
-        # If a single token is larger than either limit, split it by characters.
-        if w_bytes > max_bytes or w_chars > max_chars:
-            if current:
-                chunks.append(" ".join(current))
-                current = []
-                current_bytes = 0
-                current_chars = 0
-
-            buf: List[str] = []
-            buf_bytes = 0
-            buf_chars = 0
-            for ch in w:
-                ch_b = _utf8_len(ch)
-                if buf and (buf_bytes + ch_b > max_bytes or buf_chars + 1 > max_chars):
-                    chunks.append("".join(buf))
-                    buf = [ch]
-                    buf_bytes = ch_b
-                    buf_chars = 1
-                else:
-                    buf.append(ch)
-                    buf_bytes += ch_b
-                    buf_chars += 1
-            if buf:
-                chunks.append("".join(buf))
-            continue
-
-        sep_bytes = 1 if current else 0  # space
-        sep_chars = 1 if current else 0
-        if (
-            current_bytes + sep_bytes + w_bytes > max_bytes
-            or current_chars + sep_chars + w_chars > max_chars
-        ):
-            chunks.append(" ".join(current))
-            current = [w]
-            current_bytes = w_bytes
-            current_chars = w_chars
-        else:
-            current.append(w)
-            current_bytes += sep_bytes + w_bytes
-            current_chars += sep_chars + w_chars
-
-    if current:
-        chunks.append(" ".join(current))
-
-    return chunks
+# ---------------------------------------------------------------------------
+# Text normalisation (kept from previous version, minus chunking)
+# ---------------------------------------------------------------------------
 
 
-def normalize_main_text(value) -> str:
+def normalize_main_text(value: Any) -> str:
     """Convert Supabase main_text into a plain string suitable for embeddings.
 
-    Some rows may contain JSON strings like "[]" or '["..."]'. Others may
-    come through already decoded as list/dict depending on how they were stored.
+    Some rows may contain JSON strings like ``"[]"`` or ``'["..."]'``.  Others
+    may come through already decoded as list/dict depending on how they were
+    stored.
     """
     if value is None:
         return ""
@@ -160,7 +107,6 @@ def normalize_main_text(value) -> str:
         s = value.strip()
         if not s:
             return ""
-        # If it looks like JSON, try to parse it.
         if (s.startswith("[") and s.endswith("]")) or (
             s.startswith("{") and s.endswith("}")
         ):
@@ -180,7 +126,6 @@ def normalize_main_text(value) -> str:
         return "\n".join(parts)
 
     if isinstance(value, dict):
-        # Common patterns: {"text": "..."} or {"main_text": "..."}
         for key in ("text", "main_text", "content"):
             if key in value:
                 return normalize_main_text(value.get(key))
@@ -192,35 +137,51 @@ def normalize_main_text(value) -> str:
     return str(value)
 
 
+# ---------------------------------------------------------------------------
+# Supabase data fetching
+# ---------------------------------------------------------------------------
+
+
+def _extract_domain(row: Dict[str, Any]) -> str:
+    """Extract the ``domain`` string from a joined ``page_schemas`` object."""
+    ps = row.get("page_schemas")
+    if isinstance(ps, dict):
+        return str(ps.get("domain", ""))
+    return ""
+
+
 def fetch_parsed_content(
     offset: int,
     limit: int,
     status: str = "parsed",
 ) -> List[Dict[str, Any]]:
-    """Fetch a page of rows from Supabase `parsed_content` for a given status.
+    """Fetch a page of rows from Supabase ``parsed_content`` with joins.
 
-    Tries ordering by `parsed_at` if present; falls back to ordering by `id`.
+    Joins ``page_schemas`` (via ``page_schema_id``) to retrieve the domain.
+    Ordering prefers ``date``; falls back to ``id`` if the column is absent.
     """
     client = _get_supabase_client()
 
-    # Try to use parsed_at ordering if the column exists; fall back to id ordering.
+    select_cols = "id, main_text, date, page_schema_id, page_schemas(domain)"
+
     try:
         response = (
             client.table("parsed_content")
-            .select("id, main_text, search_result_id, parsed_at")
+            .select(select_cols)
             .eq("status", status)
-            .order("parsed_at", desc=False)
+            .order("date", desc=False)
             .range(offset, offset + limit - 1)
             .execute()
         )
         return cast(List[Dict[str, Any]], response.data)
     except APIError as e:
         msg = str(e)
-        if "parsed_at" not in msg:
+        if "date" not in msg:
             raise
+        # Fallback: order by id if ``date`` column causes issues.
         response = (
             client.table("parsed_content")
-            .select("id, main_text, search_result_id")
+            .select(select_cols)
             .eq("status", status)
             .order("id", desc=False)
             .range(offset, offset + limit - 1)
@@ -230,7 +191,7 @@ def fetch_parsed_content(
 
 
 def _unique_ids(values: Iterable[str]) -> List[str]:
-    seen = set()
+    seen: set[str] = set()
     out: List[str] = []
     for v in values:
         if v in seen:
@@ -260,50 +221,38 @@ def mark_ingested(parsed_content_ids: Sequence[str]) -> None:
         raise
 
 
-def send_to_ingest(records: List[Dict[str, Any]]) -> List[str]:
-    """Ingest Supabase rows into Veritatis.
+# ---------------------------------------------------------------------------
+# Ingestion orchestration
+# ---------------------------------------------------------------------------
 
-    Note: the Veritatis API in this repo accepts one record per request at
-    POST /ingest with body fields: content, source_url, supabase_id, metadata.
+
+def send_to_ingest(records: List[Dict[str, Any]]) -> List[str]:
+    """Ingest Supabase rows into Veritatis (Milvus) directly.
+
+    One Milvus record per ``parsed_content`` row — no chunking.
+    Returns a deduplicated list of parsed_content IDs that were processed.
     """
     ingested_parsed_content_ids: List[str] = []
 
     for r in records:
         text = normalize_main_text(r.get("main_text"))
         if not text:
-            # Skip empty/NULL content to avoid 422s.
             continue
 
         parsed_content_id = r["id"]
-        chunks = chunk_text(text)
-        if not chunks:
-            continue
+        date_ms = _parse_date_to_epoch_ms(r.get("date"))
+        domain = _extract_domain(r)
+
+        ingest_record(
+            text,
+            iid=parsed_content_id,
+            tier=1,
+            credibility_score=0.0,
+            date=date_ms,
+            domain=domain,
+        )
 
         ingested_parsed_content_ids.append(parsed_content_id)
-
-        base_metadata = {
-            "search_result_id": r.get("search_result_id"),
-            **({"parsed_at": r.get("parsed_at")} if r.get("parsed_at") else {}),
-        }
-
-        # Avoid sending null metadata keys.
-        base_metadata = {k: v for k, v in base_metadata.items() if v is not None}
-
-        for idx, chunk in enumerate(chunks):
-            body = {
-                "content": chunk,
-                "supabase_id": parsed_content_id,
-                "metadata": {
-                    **base_metadata,
-                    "parsed_content_id": parsed_content_id,
-                    "chunk_index": idx,
-                    "chunk_count": len(chunks),
-                },
-            }
-
-            resp = requests.post(INGEST_URL, json=body, timeout=60)
-            if not resp.ok:
-                raise RuntimeError(f"Ingest failed ({resp.status_code}): {resp.text}")
 
     return _unique_ids(ingested_parsed_content_ids)
 

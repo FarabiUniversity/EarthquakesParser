@@ -19,52 +19,47 @@ def sample_search_results():
     """Create mock search results with varying similarity scores."""
     return [
         SearchResult(
-            id="high_relevance_1",
-            content="Climate change causes global warming",
-            source_url="https://example.com/climate",
+            iid="high_relevance_1",
+            tier=1,
             credibility_score=0.9,
-            ingested_timestamp=int(time.time() * 1000),
-            supabase_id="sup_1",
+            date=int(time.time() * 1000),
+            domain="example.com",
             similarity_score=0.85,  # High relevance
             is_relevant=False,
         ),
         SearchResult(
-            id="high_relevance_2",
-            content="Global warming affects climate patterns",
-            source_url="https://example.com/warming",
+            iid="high_relevance_2",
+            tier=1,
             credibility_score=0.85,
-            ingested_timestamp=int(time.time() * 1000),
-            supabase_id="sup_2",
+            date=int(time.time() * 1000),
+            domain="example.com",
             similarity_score=0.78,  # High relevance
             is_relevant=False,
         ),
         SearchResult(
-            id="medium_relevance",
-            content="Weather patterns are changing worldwide",
-            source_url="https://example.com/weather",
+            iid="medium_relevance",
+            tier=1,
             credibility_score=0.7,
-            ingested_timestamp=int(time.time() * 1000),
-            supabase_id="sup_3",
+            date=int(time.time() * 1000),
+            domain="example.com",
             similarity_score=0.55,  # Medium relevance
             is_relevant=False,
         ),
         SearchResult(
-            id="low_relevance_1",
-            content="Ice cream sales increase in summer",
-            source_url="https://example.com/icecream",
+            iid="low_relevance_1",
+            tier=1,
             credibility_score=0.5,
-            ingested_timestamp=int(time.time() * 1000),
-            supabase_id="sup_4",
+            date=int(time.time() * 1000),
+            domain="example.com",
             similarity_score=0.35,  # Low relevance
             is_relevant=False,
         ),
         SearchResult(
-            id="low_relevance_2",
-            content="Completely unrelated topic about cars",
-            source_url="https://example.com/cars",
+            iid="low_relevance_2",
+            tier=1,
             credibility_score=0.3,
-            ingested_timestamp=int(time.time() * 1000),
-            supabase_id="sup_5",
+            date=int(time.time() * 1000),
+            domain="example.com",
             similarity_score=0.15,  # Very low relevance
             is_relevant=False,
         ),
@@ -83,12 +78,10 @@ class TestRelevanceFilter:
         assert len(relevant) == 3  # Scores: 0.85, 0.78, 0.55
         assert len(irrelevant) == 2  # Scores: 0.35, 0.15
 
-        # Check all relevant results are marked correctly
         for result in relevant:
             assert result.is_relevant is True
             assert result.similarity_score >= RelevanceFilter.DEFAULT_THRESHOLD
 
-        # Check all irrelevant results are marked correctly
         for result in irrelevant:
             assert result.is_relevant is False
             assert result.similarity_score < RelevanceFilter.DEFAULT_THRESHOLD
@@ -125,7 +118,6 @@ class TestRelevanceFilter:
         """Test adaptive threshold calculation."""
         threshold = RelevanceFilter.get_adaptive_threshold(sample_search_results)
 
-        # Calculate expected mean and stddev
         scores = [0.85, 0.78, 0.55, 0.35, 0.15]
         mean = sum(scores) / len(scores)  # 0.536
         variance = sum((s - mean) ** 2 for s in scores) / len(scores)
@@ -133,33 +125,29 @@ class TestRelevanceFilter:
 
         expected = mean + (0.5 * std_dev)  # ~0.675
 
-        # Should be clamped between lenient and strict
         assert (
             RelevanceFilter.LENIENT_THRESHOLD
             <= threshold
             <= RelevanceFilter.STRICT_THRESHOLD
         )
-        assert abs(threshold - expected) < 0.01  # Close to calculated value
+        assert abs(threshold - expected) < 0.01
 
     def test_adaptive_threshold_with_uniform_scores(self):
         """Test adaptive threshold when all scores are similar."""
         uniform_results = [
             SearchResult(
-                id=f"result_{i}",
-                content=f"Content {i}",
-                source_url="",
+                iid=f"result_{i}",
+                tier=1,
                 credibility_score=0.5,
-                ingested_timestamp=0,
-                supabase_id="",
-                similarity_score=0.6,  # All same score
+                date=0,
+                domain="",
+                similarity_score=0.6,
                 is_relevant=False,
             )
             for i in range(5)
         ]
 
         threshold = RelevanceFilter.get_adaptive_threshold(uniform_results)
-
-        # With no variance, threshold should be close to the mean
         assert abs(threshold - 0.6) < 0.1
 
 
@@ -172,51 +160,46 @@ class TestSearchWithRelevanceFilter:
         """Insert test data before each test."""
         store = MilvusRecordStore()
 
-        # Insert diverse test records
         test_records = [
             {
-                "id": "climate_1",
-                "content": "Climate change is causing global temperature rise",
+                "iid": "climate_1",
                 "embedding": embedding_generator.embed(
                     "Climate change is causing global temperature rise"
                 ),
-                "source_url": "https://climate.com/1",
+                "tier": 1,
                 "credibility_score": 0.9,
-                "ingested_timestamp": int(time.time() * 1000),
-                "supabase_id": "sup_climate_1",
+                "date": int(time.time() * 1000),
+                "domain": "climate.com",
             },
             {
-                "id": "climate_2",
-                "content": "Greenhouse gases trap heat in the atmosphere",
+                "iid": "climate_2",
                 "embedding": embedding_generator.embed(
                     "Greenhouse gases trap heat in the atmosphere"
                 ),
-                "source_url": "https://climate.com/2",
+                "tier": 1,
                 "credibility_score": 0.85,
-                "ingested_timestamp": int(time.time() * 1000),
-                "supabase_id": "sup_climate_2",
+                "date": int(time.time() * 1000),
+                "domain": "climate.com",
             },
             {
-                "id": "weather_1",
-                "content": "Today's weather forecast shows rain",
+                "iid": "weather_1",
                 "embedding": embedding_generator.embed(
                     "Today's weather forecast shows rain"
                 ),
-                "source_url": "https://weather.com/1",
+                "tier": 1,
                 "credibility_score": 0.7,
-                "ingested_timestamp": int(time.time() * 1000),
-                "supabase_id": "sup_weather_1",
+                "date": int(time.time() * 1000),
+                "domain": "weather.com",
             },
             {
-                "id": "unrelated_1",
-                "content": "Python is a programming language",
+                "iid": "unrelated_1",
                 "embedding": embedding_generator.embed(
                     "Python is a programming language"
                 ),
-                "source_url": "https://python.org",
+                "tier": 1,
                 "credibility_score": 0.8,
-                "ingested_timestamp": int(time.time() * 1000),
-                "supabase_id": "sup_python_1",
+                "date": int(time.time() * 1000),
+                "domain": "python.org",
             },
         ]
 
@@ -239,9 +222,8 @@ class TestSearchWithRelevanceFilter:
             == result["total_results"]
         )
 
-        # Climate-related results should be relevant
-        relevant_ids = [r["id"] for r in result["relevant_results"]]
-        assert any("climate" in rid for rid in relevant_ids)
+        relevant_iids = [r["iid"] for r in result["relevant_results"]]
+        assert any("climate" in iid for iid in relevant_iids)
 
     def test_search_with_custom_threshold(self, test_collection):
         """Test search with custom relevance threshold."""
@@ -255,7 +237,6 @@ class TestSearchWithRelevanceFilter:
         assert result["threshold"] == 0.6
         assert result["threshold_type"] == "custom"
 
-        # All relevant results should meet threshold
         for r in result["relevant_results"]:
             assert r["similarity_score"] >= 0.6
 
@@ -275,7 +256,6 @@ class TestSearchWithRelevanceFilter:
             <= RelevanceFilter.STRICT_THRESHOLD
         )
 
-        # Adaptive threshold should filter out clearly irrelevant results
         assert result["irrelevant_count"] > 0
 
     def test_search_embeddings_convenience_function(self, test_collection):
@@ -287,7 +267,6 @@ class TestSearchWithRelevanceFilter:
             min_relevance=0.5,
         )
 
-        # Should return only relevant results (list of dicts)
         assert isinstance(results, list)
         assert all(isinstance(r, dict) for r in results)
         assert all(r["similarity_score"] >= 0.5 for r in results)
@@ -301,10 +280,8 @@ class TestSearchWithRelevanceFilter:
             relevance_threshold=RelevanceFilter.STRICT_THRESHOLD,
         )
 
-        # Strict threshold should filter out most results
         assert result["relevant_count"] < result["total_results"]
 
-        # All relevant results should be highly similar
         for r in result["relevant_results"]:
             assert r["similarity_score"] >= RelevanceFilter.STRICT_THRESHOLD
 
@@ -312,13 +289,11 @@ class TestSearchWithRelevanceFilter:
         """Test that lenient threshold keeps most results."""
         result = search_with_relevance_filter(
             collection_name=test_collection,
-            query="climate and weather patterns",  # More specific query
+            query="climate and weather patterns",
             top_k=10,
             relevance_threshold=RelevanceFilter.LENIENT_THRESHOLD,
         )
 
-        # Lenient threshold should keep at least some results
-        # (relaxed assertion since query relevance varies)
         assert result["relevant_count"] > 0 or result["total_results"] > 0
 
     def test_filtered_results_contain_reason(self, test_collection):
@@ -330,9 +305,8 @@ class TestSearchWithRelevanceFilter:
             relevance_threshold=0.7,
         )
 
-        # Check that filtered results have proper structure
         for filtered in result["filtered_results"]:
-            assert "id" in filtered
+            assert "iid" in filtered
             assert "similarity_score" in filtered
             assert "reason" in filtered
             assert "Below threshold" in filtered["reason"]

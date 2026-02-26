@@ -1,4 +1,4 @@
-"""Re-ingest already-ingested Supabase rows into Milvus via the Veritatis API.
+"""Re-ingest already-ingested Supabase rows into Milvus.
 
 Use this when Milvus collections were dropped/wiped but Supabase rows have already
 been marked with `status='ingested'`.
@@ -6,7 +6,7 @@ been marked with `status='ingested'`.
 This script:
 - fetches rows from Supabase table `parsed_content` where `status='ingested'`
 - normalizes + chunks `main_text`
-- POSTs each chunk to the Veritatis API `POST /ingest`
+- ingests each chunk directly via `ingest_record()`
 - does NOT update Supabase statuses (to avoid infinite loops / unwanted changes)
 
 Run examples:
@@ -19,7 +19,6 @@ Run examples:
 Environment:
 - SUPABASE_URL
 - SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY)
-- INGEST_URL (default: http://localhost:8000/ingest)
 
 Optional args:
 - --batch-size 200

@@ -32,6 +32,9 @@ MILVUS_RECREATE_ON_STARTUP = (
 MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
 MILVUS_PORT = int(os.getenv("MILVUS_PORT", "19530"))
 
+# Single collection name for all tiers
+COLLECTION_NAME = "veritatis"
+
 
 def _field_signature(field: FieldSchema) -> Dict[str, Any]:
     """Return a stable, comparable signature for a Milvus field."""
@@ -302,55 +305,128 @@ class MilvusRecordStore:
         )
         return getattr(res, "primary_keys", None)
 
-    def record_exists(self, collection_name: str, record_id: str) -> bool:
-        """Return True if a record with primary key id exists in the collection."""
+    def record_exists(self, collection_name: str, record_iid: str) -> bool:
+        """Return True if a record with primary key iid exists in the collection."""
         ensure_collection_loaded(collection_name)
         collection = Collection(collection_name)
-        results = collection.query(expr=f'id in ["{record_id}"]', output_fields=["id"])
+        results = collection.query(
+            expr=f'iid in ["{record_iid}"]', output_fields=["iid"]
+        )
         return len(results) > 0
 
-    def delete_record(self, collection_name: str, record_id: str):
+    def delete_record(self, collection_name: str, record_iid: str):
         """Delete a record from a collection."""
         ensure_collection_loaded(collection_name)
         collection = Collection(collection_name)
-        # Use 'in' expression which is more reliable for VARCHAR primary keys
-        result = collection.delete(expr=f'id in ["{record_id}"]')
-        collection.flush()  # Ensure deletion is persisted
-        # Force compaction to immediately remove deleted records (for testing)
-        time.sleep(0.1)  # Brief wait for flush to complete
+        result = collection.delete(expr=f'iid in ["{record_iid}"]')
+        collection.flush()
+        time.sleep(0.1)
         print(
-            f"Deleted record {record_id} from {collection_name}; "
+            f"Deleted record {record_iid} from {collection_name}; "
             f"delete_count={getattr(result, 'delete_count', 'unknown')}"
         )
 
-    def get_record(self, collection_name: str, record_id: str):
-        """Retrieve a record from a collection."""
-        # Query with explicit field names including the vector field
+    def get_record(self, collection_name: str, record_iid: str):
+        """Retrieve a record from a collection by iid."""
         try:
             ensure_collection_loaded(collection_name)
             collection = Collection(collection_name)
-            # Get all field names from schema
             field_names = [f.name for f in collection.schema.fields]
             results = collection.query(
-                expr=f'id in ["{record_id}"]', output_fields=field_names
+                expr=f'iid in ["{record_iid}"]', output_fields=field_names
             )
         except Exception as e:
-            print(f"Error fetching record {record_id} from {collection_name}: {e}")
+            print(f"Error fetching record {record_iid} from {collection_name}: {e}")
             return None
         return results[0] if results else None
 
-    def move_record(self, collection_from: str, collection_to: str, record_id: str):
-        """Move a record between collections."""
-        record = self.get_record(collection_from, record_id)
-        if not record:
-            print(f"No such record found in {collection_from}")
-            return False
-        # Ensure the target collection has all required fields;
-        # missing optional fields filled if needed.
-        self.insert_record(collection_to, record)
-        self.delete_record(collection_from, record_id)
-        print(f"Record id={record_id} moved {collection_from} -> {collection_to}")
-        return True
+    def move_records(self, collection_name: str, iids: List[str]) -> int:
+        """Promote records by incrementing their tier by 1.
+
+        Uses delete + re-insert since Milvus doesn't support in-place updates.
+        Returns the number of records promoted.
+        """
+        ensure_collection_loaded(collection_name)
+        collection = Collection(collection_name)
+        iid_list = ", ".join(f'"{iid}"' for iid in iids)
+        field_names = [f.name for f in collection.schema.fields]
+        records = collection.query(
+            expr=f"iid in [{iid_list}]", output_fields=field_names
+        )
+        if not records:
+            return 0
+
+        for record in records:
+            record["tier"] = record["tier"] + 1
+
+        # Delete old records
+        collection.delete(expr=f"iid in [{iid_list}]")
+        collection.flush()
+        time.sleep(0.1)
+
+        # Re-insert with incremented tier
+        schema_field_names = [f.name for f in collection.schema.fields]
+        data_columns = [[r[name] for r in records] for name in schema_field_names]
+        collection.insert(data_columns)
+        collection.flush()
+        return len(records)
+
+    def update_credibility_scores(
+        self, collection_name: str, updates: List[Dict[str, Any]]
+    ) -> int:
+        """Update credibility_score for records.
+
+        updates: list of {"iid": str, "credibility_score": float}
+        Returns the number of records updated.
+        """
+        if not updates:
+            return 0
+        ensure_collection_loaded(collection_name)
+        collection = Collection(collection_name)
+        iids = [u["iid"] for u in updates]
+        score_map = {u["iid"]: u["credibility_score"] for u in updates}
+        iid_list = ", ".join(f'"{iid}"' for iid in iids)
+        field_names = [f.name for f in collection.schema.fields]
+        records = collection.query(
+            expr=f"iid in [{iid_list}]", output_fields=field_names
+        )
+        if not records:
+            return 0
+
+        for record in records:
+            record["credibility_score"] = score_map.get(
+                record["iid"], record["credibility_score"]
+            )
+
+        collection.delete(expr=f"iid in [{iid_list}]")
+        collection.flush()
+        time.sleep(0.1)
+
+        schema_field_names = [f.name for f in collection.schema.fields]
+        data_columns = [[r[name] for r in records] for name in schema_field_names]
+        collection.insert(data_columns)
+        collection.flush()
+        return len(records)
+
+    def query_by_tier(
+        self,
+        collection_name: str,
+        tier: int,
+        *,
+        min_credibility: Optional[float] = None,
+        limit: int = 1000,
+    ) -> List[Dict[str, Any]]:
+        """Query records by tier, optionally filtering by min credibility_score."""
+        ensure_collection_loaded(collection_name)
+        collection = Collection(collection_name)
+        expr = f"tier == {tier}"
+        if min_credibility is not None:
+            expr += f" and credibility_score >= {min_credibility}"
+        field_names = [f.name for f in collection.schema.fields]
+        results: list[dict[str, Any]] = collection.query(
+            expr=expr, output_fields=field_names, limit=limit
+        )
+        return results
 
 
 def create_collection_if_not_exists(
@@ -411,79 +487,50 @@ def create_collection_if_not_exists(
 
 
 def init_collections():
-    """Initialize all three Veritatis tiers."""
-    logger.info("Initializing all Milvus collections...")
+    """Initialize the single Veritatis collection with tiered credibility."""
+    logger.info("Initializing Veritatis Milvus collection...")
     start_all = time.time()
 
-    # Tier 1: Lacus Factorum
-    logger.info("Tier 1: Lacus Factorum (veritatis_tier1_lake)")
-    tier1_fields = [
-        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
-        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
+    fields = [
+        FieldSchema(
+            name="iid",
+            dtype=DataType.VARCHAR,
+            is_primary=True,
+            max_length=64,
+            description="UUID from parsed_content.id",
+        ),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-        FieldSchema(name="source_url", dtype=DataType.VARCHAR, max_length=500),
+        FieldSchema(
+            name="tier",
+            dtype=DataType.INT64,
+            description="Credibility tier: 1=raw, 2=credible (>0.7), 3=verified",
+        ),
         FieldSchema(name="credibility_score", dtype=DataType.FLOAT),
-        FieldSchema(name="ingested_timestamp", dtype=DataType.INT64),
-        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
+        FieldSchema(
+            name="date",
+            dtype=DataType.INT64,
+            description="Earthquake event date as epoch milliseconds",
+        ),
+        FieldSchema(
+            name="domain",
+            dtype=DataType.VARCHAR,
+            max_length=500,
+            description="Source domain from page_schemas",
+        ),
     ]
-    tier1_index = {
+
+    index_params = {
         "index_type": "HNSW",
         "metric_type": "COSINE",
         "params": {"M": 32, "efConstruction": 200},
     }
 
     create_collection_if_not_exists(
-        "veritatis_tier1_lake",
-        tier1_fields,
-        "Lacus Factorum — unverified facts",
-        tier1_index,
-    )
-
-    # Tier 2: Arena Veritatis
-    logger.info("Tier 2: Arena Veritatis (veritatis_tier2_arena)")
-    tier2_fields = [
-        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
-        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
-        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-        FieldSchema(name="verification_confidence", dtype=DataType.FLOAT),
-        FieldSchema(name="cross_source_count", dtype=DataType.INT64),
-        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
-    ]
-    tier2_index = {
-        "index_type": "HNSW",
-        "metric_type": "COSINE",
-        "params": {"M": 32, "efConstruction": 300},
-    }
-
-    create_collection_if_not_exists(
-        "veritatis_tier2_arena",
-        tier2_fields,
-        "Arena Veritatis — candidate facts",
-        tier2_index,
-    )
-
-    # Tier 3: Sanctum Veritatis
-    logger.info("Tier 3: Sanctum Veritatis (veritatis_tier3_sanctum)")
-    tier3_fields = [
-        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
-        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
-        FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-        FieldSchema(name="verified_by", dtype=DataType.VARCHAR, max_length=200),
-        FieldSchema(name="last_review_timestamp", dtype=DataType.INT64),
-        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
-    ]
-    tier3_index = {
-        "index_type": "HNSW",
-        "metric_type": "COSINE",
-        "params": {"M": 32, "efConstruction": 400},
-    }
-
-    create_collection_if_not_exists(
-        "veritatis_tier3_sanctum",
-        tier3_fields,
-        "Sanctum Veritatis — verified facts",
-        tier3_index,
+        COLLECTION_NAME,
+        fields,
+        "Veritatis — earthquake event embeddings with tiered credibility",
+        index_params,
     )
 
     total_elapsed = time.time() - start_all
-    logger.info(f"✅ All 3 collections initialized in {total_elapsed:.2f}s")
+    logger.info(f"✅ Veritatis collection initialized in {total_elapsed:.2f}s")
