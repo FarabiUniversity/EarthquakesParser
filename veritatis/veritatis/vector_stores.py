@@ -27,7 +27,7 @@ if ENV == "development":
 
 MILVUS_SKIP_CONNECT = os.getenv("MILVUS_SKIP_CONNECT", "false").lower() == "true"
 MILVUS_RECREATE_ON_STARTUP = (
-    os.getenv("MILVUS_RECREATE_ON_STARTUP", "true").lower() == "true"
+    os.getenv("MILVUS_RECREATE_ON_STARTUP", "false").lower() == "true"
 )
 MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
 MILVUS_PORT = int(os.getenv("MILVUS_PORT", "19530"))
