@@ -10,7 +10,11 @@ from typing import Any, Dict, List, Optional
 from pymilvus import Collection
 
 from veritatis.embeddings import embedding_generator
-from veritatis.vector_stores import COLLECTION_NAME, ensure_collection_loaded
+from veritatis.vector_stores import (
+    ALL_TIER_COLLECTIONS,
+    collection_for_tier,
+    ensure_collection_loaded,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +23,10 @@ def vector_search(
     query: str,
     *,
     top_k: int = 10,
-    collection_name: str = COLLECTION_NAME,
+    collection_name: Optional[str] = None,
     tier: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """Run a vector similarity search against the Milvus collection.
+    """Run a vector similarity search against a Milvus tier collection.
 
     Parameters
     ----------
@@ -31,48 +35,62 @@ def vector_search(
     top_k:
         Maximum number of nearest-neighbour results to return.
     collection_name:
-        Milvus collection to search.
+        Explicit Milvus collection to search.  Overrides *tier*.
     tier:
-        Optional tier filter (1, 2, or 3).  When ``None`` all tiers are searched.
+        Tier (1, 2, or 3) whose collection to search.
+        When ``None`` **and** *collection_name* is ``None``, all tier
+        collections are searched and results merged.
 
     Returns
     -------
     List of hit dicts, each containing iid, tier, credibility_score, date,
     domain, and distance.
     """
-    ensure_collection_loaded(collection_name)
     vec = embedding_generator.embed(query)
-    collection = Collection(collection_name)
     search_params = {"metric_type": "COSINE", "params": {"ef": 128}}
 
-    expr = f"tier == {tier}" if tier is not None else None
-
-    results = collection.search(
-        data=[vec],
-        anns_field="embedding",
-        param=search_params,
-        limit=top_k,
-        expr=expr,
-        output_fields=[
-            "iid",
-            "tier",
-            "credibility_score",
-            "date",
-            "domain",
-        ],
-    )
+    # Determine which collections to search
+    collections_to_search: List[tuple[str, Optional[int]]]
+    if collection_name is not None:
+        collections_to_search = [(collection_name, None)]
+    elif tier is not None:
+        collections_to_search = [(collection_for_tier(tier), tier)]
+    else:
+        collections_to_search = [
+            (name, idx + 1) for idx, name in enumerate(ALL_TIER_COLLECTIONS)
+        ]
 
     hits: List[Dict[str, Any]] = []
-    for hit in results[0]:
-        hits.append(
-            {
-                "iid": str(hit.id),
-                "tier": int(getattr(hit, "tier", 0)),
-                "credibility_score": float(getattr(hit, "credibility_score", 0.0)),
-                "date": int(getattr(hit, "date", 0)),
-                "domain": str(getattr(hit, "domain", "")),
-                "distance": float(hit.distance),
-            }
+    for col_name, inferred_tier in collections_to_search:
+        ensure_collection_loaded(col_name)
+        collection = Collection(col_name)
+
+        results = collection.search(
+            data=[vec],
+            anns_field="embedding",
+            param=search_params,
+            limit=top_k,
+            output_fields=[
+                "iid",
+                "credibility_score",
+                "date",
+                "domain",
+            ],
         )
 
-    return hits
+        determined_tier = inferred_tier or 0
+        for hit in results[0]:
+            hits.append(
+                {
+                    "iid": str(hit.id),
+                    "tier": determined_tier,
+                    "credibility_score": float(getattr(hit, "credibility_score", 0.0)),
+                    "date": int(getattr(hit, "date", 0)),
+                    "domain": str(getattr(hit, "domain", "")),
+                    "distance": float(hit.distance),
+                }
+            )
+
+    # Sort merged results by distance (higher = more similar for COSINE)
+    hits.sort(key=lambda h: h["distance"], reverse=True)
+    return hits[:top_k]

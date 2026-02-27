@@ -1,9 +1,9 @@
 """Core ingestion logic for Veritatis.
 
 Provides `ingest_record()` which normalizes text, generates an embedding,
-and inserts into the single Milvus ``veritatis`` collection.  The text itself
+and inserts into the Milvus ``veritatis_tier1`` collection.  The text itself
 is **not** stored in Milvus — only the embedding vector and metadata
-(tier, credibility_score, date, domain).  The ``iid`` primary key maps back
+(credibility_score, date, domain).  The ``iid`` primary key maps back
 to ``parsed_content.id`` in Supabase for full-text retrieval when needed.
 
 This module is used by both the FastAPI endpoint and the batch ingestion scripts.
@@ -15,8 +15,8 @@ from typing import Optional
 
 from veritatis.embeddings import embedding_generator
 from veritatis.vector_stores import (
-    COLLECTION_NAME,
     MilvusRecordStore,
+    collection_for_tier,
     ensure_connection,
     init_collections,
 )
@@ -62,7 +62,7 @@ def ingest_record(
     domain: str = "",
     store: Optional[MilvusRecordStore] = None,
 ) -> IngestResult:
-    """Ingest a single parsed_content record into Milvus.
+    """Ingest a single parsed_content record into the Milvus tier collection.
 
     The *text* is used only to generate the embedding — it is **not** stored
     in Milvus.  All other metadata fields are persisted alongside the vector.
@@ -75,6 +75,7 @@ def ingest_record(
         Primary key — must equal ``parsed_content.id`` (UUID).
     tier:
         Credibility tier (1 = raw/unverified, 2 = credible, 3 = verified).
+        Determines which collection the record is inserted into.
     credibility_score:
         Initial credibility score (default 0.0, updated later).
     date:
@@ -90,10 +91,11 @@ def ingest_record(
     and collection name.
     """
     store = store or get_store()
+    target_collection = collection_for_tier(tier)
 
     # Dedup: check if iid already exists
-    if store.record_exists(COLLECTION_NAME, iid):
-        return IngestResult(iid=iid, status="duplicate", collection=COLLECTION_NAME)
+    if store.record_exists(target_collection, iid):
+        return IngestResult(iid=iid, status="duplicate", collection=target_collection)
 
     # Generate embedding from text (text itself is NOT stored in Milvus)
     normalized = " ".join(text.split()).strip()
@@ -102,11 +104,10 @@ def ingest_record(
     record = {
         "iid": iid,
         "embedding": embedding,
-        "tier": tier,
         "credibility_score": credibility_score,
         "date": date,
         "domain": domain,
     }
 
-    store.insert_record(COLLECTION_NAME, record)
-    return IngestResult(iid=iid, status="inserted", collection=COLLECTION_NAME)
+    store.insert_record(target_collection, record)
+    return IngestResult(iid=iid, status="inserted", collection=target_collection)

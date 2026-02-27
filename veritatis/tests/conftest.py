@@ -67,7 +67,7 @@ def test_collection(milvus_connection):
         utility.drop_collection(collection_name)
         logger.info(f"🧹 Dropped existing test collection '{collection_name}'")
 
-    # Schema mirrors the single veritatis collection
+    # Schema mirrors the veritatis tier collections (no tier field)
     fields = [
         FieldSchema(
             name="iid",
@@ -76,7 +76,6 @@ def test_collection(milvus_connection):
             max_length=64,
         ),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-        FieldSchema(name="tier", dtype=DataType.INT64),
         FieldSchema(name="credibility_score", dtype=DataType.FLOAT),
         FieldSchema(name="date", dtype=DataType.INT64),
         FieldSchema(name="domain", dtype=DataType.VARCHAR, max_length=500),

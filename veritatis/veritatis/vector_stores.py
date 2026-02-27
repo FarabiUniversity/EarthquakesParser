@@ -27,13 +27,27 @@ if ENV == "development":
 
 MILVUS_SKIP_CONNECT = os.getenv("MILVUS_SKIP_CONNECT", "false").lower() == "true"
 MILVUS_RECREATE_ON_STARTUP = (
-    os.getenv("MILVUS_RECREATE_ON_STARTUP", "false").lower() == "true"
+    os.getenv("MILVUS_RECREATE_ON_STARTUP", "true").lower() == "true"
 )
 MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
 MILVUS_PORT = int(os.getenv("MILVUS_PORT", "19530"))
 
-# Single collection name for all tiers
-COLLECTION_NAME = "veritatis"
+# One collection per credibility tier.
+TIER1_COLLECTION = "veritatis_tier1"  # raw / unverified
+TIER2_COLLECTION = "veritatis_tier2"  # credible (score > 0.7)
+TIER3_COLLECTION = "veritatis_tier3"  # verified
+
+ALL_TIER_COLLECTIONS = [TIER1_COLLECTION, TIER2_COLLECTION, TIER3_COLLECTION]
+
+# Legacy alias kept so existing imports don't break immediately.
+COLLECTION_NAME = TIER1_COLLECTION
+
+
+def collection_for_tier(tier: int) -> str:
+    """Return the collection name for a given tier (1, 2, or 3)."""
+    if tier < 1 or tier > 3:
+        raise ValueError(f"Invalid tier {tier}; must be 1, 2, or 3")
+    return ALL_TIER_COLLECTIONS[tier - 1]
 
 
 def _field_signature(field: FieldSchema) -> Dict[str, Any]:
@@ -340,35 +354,36 @@ class MilvusRecordStore:
             return None
         return results[0] if results else None
 
-    def move_records(self, collection_name: str, iids: List[str]) -> int:
-        """Promote records by incrementing their tier by 1.
+    def move_records(
+        self, source_collection: str, target_collection: str, iids: List[str]
+    ) -> int:
+        """Move records from one tier collection to another.
 
-        Uses delete + re-insert since Milvus doesn't support in-place updates.
-        Returns the number of records promoted.
+        Fetches full records from *source_collection*, deletes them there,
+        and re-inserts into *target_collection*.
+        Returns the number of records moved.
         """
-        ensure_collection_loaded(collection_name)
-        collection = Collection(collection_name)
+        ensure_collection_loaded(source_collection)
+        ensure_collection_loaded(target_collection)
+
+        src = Collection(source_collection)
         iid_list = ", ".join(f'"{iid}"' for iid in iids)
-        field_names = [f.name for f in collection.schema.fields]
-        records = collection.query(
-            expr=f"iid in [{iid_list}]", output_fields=field_names
-        )
+        field_names = [f.name for f in src.schema.fields]
+        records = src.query(expr=f"iid in [{iid_list}]", output_fields=field_names)
         if not records:
             return 0
 
-        for record in records:
-            record["tier"] = record["tier"] + 1
-
-        # Delete old records
-        collection.delete(expr=f"iid in [{iid_list}]")
-        collection.flush()
+        # Delete from source
+        src.delete(expr=f"iid in [{iid_list}]")
+        src.flush()
         time.sleep(0.1)
 
-        # Re-insert with incremented tier
-        schema_field_names = [f.name for f in collection.schema.fields]
-        data_columns = [[r[name] for r in records] for name in schema_field_names]
-        collection.insert(data_columns)
-        collection.flush()
+        # Insert into target
+        tgt = Collection(target_collection)
+        tgt_field_names = [f.name for f in tgt.schema.fields]
+        data_columns = [[r[name] for r in records] for name in tgt_field_names]
+        tgt.insert(data_columns)
+        tgt.flush()
         return len(records)
 
     def update_credibility_scores(
@@ -410,21 +425,24 @@ class MilvusRecordStore:
 
     def query_by_tier(
         self,
-        collection_name: str,
         tier: int,
         *,
         min_credibility: Optional[float] = None,
         limit: int = 1000,
     ) -> List[Dict[str, Any]]:
-        """Query records by tier, optionally filtering by min credibility_score."""
+        """Query records from the collection corresponding to *tier*.
+
+        Optionally filters by minimum credibility_score.
+        """
+        collection_name = collection_for_tier(tier)
         ensure_collection_loaded(collection_name)
         collection = Collection(collection_name)
-        expr = f"tier == {tier}"
+        expr = ""
         if min_credibility is not None:
-            expr += f" and credibility_score >= {min_credibility}"
+            expr = f"credibility_score >= {min_credibility}"
         field_names = [f.name for f in collection.schema.fields]
         results: list[dict[str, Any]] = collection.query(
-            expr=expr, output_fields=field_names, limit=limit
+            expr=expr or None, output_fields=field_names, limit=limit
         )
         return results
 
@@ -487,8 +505,8 @@ def create_collection_if_not_exists(
 
 
 def init_collections():
-    """Initialize the single Veritatis collection with tiered credibility."""
-    logger.info("Initializing Veritatis Milvus collection...")
+    """Initialize the three Veritatis tier collections."""
+    logger.info("Initializing Veritatis Milvus collections...")
     start_all = time.time()
 
     fields = [
@@ -500,11 +518,6 @@ def init_collections():
             description="UUID from parsed_content.id",
         ),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-        FieldSchema(
-            name="tier",
-            dtype=DataType.INT64,
-            description="Credibility tier: 1=raw, 2=credible (>0.7), 3=verified",
-        ),
         FieldSchema(name="credibility_score", dtype=DataType.FLOAT),
         FieldSchema(
             name="date",
@@ -525,12 +538,19 @@ def init_collections():
         "params": {"M": 32, "efConstruction": 200},
     }
 
-    create_collection_if_not_exists(
-        COLLECTION_NAME,
-        fields,
-        "Veritatis — earthquake event embeddings with tiered credibility",
-        index_params,
-    )
+    descriptions = {
+        TIER1_COLLECTION: "Veritatis tier 1 — raw / unverified earthquake embeddings",
+        TIER2_COLLECTION: "Veritatis tier 2 — credible earthquake embeddings",
+        TIER3_COLLECTION: "Veritatis tier 3 — verified earthquake embeddings",
+    }
+
+    for col_name in ALL_TIER_COLLECTIONS:
+        create_collection_if_not_exists(
+            col_name,
+            fields,
+            descriptions[col_name],
+            index_params,
+        )
 
     total_elapsed = time.time() - start_all
-    logger.info(f"✅ Veritatis collection initialized in {total_elapsed:.2f}s")
+    logger.info(f"✅ Veritatis collections initialized in {total_elapsed:.2f}s")

@@ -34,7 +34,7 @@ def _ensure_milvus():
 
 
 def _create_test_collection(name):
-    """Create a test collection with the veritatis schema."""
+    """Create a test collection with the veritatis schema (no tier field)."""
     vs.create_collection_if_not_exists(
         name,
         fields=[
@@ -44,7 +44,6 @@ def _create_test_collection(name):
             vs.FieldSchema(
                 name="embedding", dtype=vs.DataType.FLOAT_VECTOR, dim=EMBED_DIM
             ),
-            vs.FieldSchema(name="tier", dtype=vs.DataType.INT64),
             vs.FieldSchema(name="credibility_score", dtype=vs.DataType.FLOAT),
             vs.FieldSchema(name="date", dtype=vs.DataType.INT64),
             vs.FieldSchema(name="domain", dtype=vs.DataType.VARCHAR, max_length=500),
@@ -69,7 +68,6 @@ def test_insert_and_exists_and_get():
     record = {
         "iid": rid,
         "embedding": _embedding(),
-        "tier": 1,
         "credibility_score": 0.0,
         "date": 0,
         "domain": "example.com",
@@ -88,7 +86,6 @@ def test_insert_and_exists_and_get():
                 "test": "insert_exists_get",
                 "collection": name,
                 "iid": rid,
-                "tier": fetched["tier"],
                 "embedding_dim": len(fetched["embedding"]),
                 "timestamp": datetime.now(ALMATY_TZ).isoformat(),
             },
@@ -98,11 +95,13 @@ def test_insert_and_exists_and_get():
 
 
 def test_insert_batch_and_move():
-    """Insert a batch, then update tier for a subset of records."""
+    """Insert a batch into one collection, then move a record to another."""
     store = vs.MilvusRecordStore()
 
-    name = f"it_tier_{_rand_id()}"
-    _create_test_collection(name)
+    src_name = f"it_src_{_rand_id()}"
+    tgt_name = f"it_tgt_{_rand_id()}"
+    _create_test_collection(src_name)
+    _create_test_collection(tgt_name)
 
     batch = []
     ids = []
@@ -113,31 +112,32 @@ def test_insert_batch_and_move():
             {
                 "iid": rid,
                 "embedding": _embedding(),
-                "tier": 1,
                 "credibility_score": 0.5 + i * 0.1,
                 "date": 0,
                 "domain": f"source{i}.com",
             }
         )
 
-    pks = store.insert_record(name, batch)
+    pks = store.insert_record(src_name, batch)
     assert pks == ids
 
-    # Promote second record: tier 1 -> 2
-    count = store.move_records(name, [ids[1]])
+    # Move second record from src to tgt
+    count = store.move_records(src_name, tgt_name, [ids[1]])
     assert count == 1
 
-    fetched = store.get_record(name, ids[1])
-    assert fetched["tier"] == 2
+    # Verify it's gone from source and present in target
+    assert store.record_exists(src_name, ids[1]) is False
+    fetched = store.get_record(tgt_name, ids[1])
+    assert fetched is not None and fetched["iid"] == ids[1]
 
     out = Path("artifacts") / "milvus_store_integration_tier.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(
         json.dumps(
             {
-                "promoted_iid": ids[1],
-                "collection": name,
-                "new_tier": 2,
+                "moved_iid": ids[1],
+                "source": src_name,
+                "target": tgt_name,
             },
             indent=2,
         )

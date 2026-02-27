@@ -2,8 +2,8 @@
 
 This script reads rows from the Supabase ``parsed_content`` table where
 ``status='parsed'``, normalises their ``main_text``, generates an embedding,
-and inserts a single record per row into the unified ``veritatis`` Milvus
-collection at **tier 1**.  The text itself is *not* stored in Milvus.
+and inserts a single record per row into the ``veritatis_tier1`` Milvus
+collection.  The text itself is *not* stored in Milvus.
 
 After successful ingestion the Supabase rows are marked ``status='ingested'``.
 """

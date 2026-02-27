@@ -137,7 +137,7 @@ class TestRelevanceFilter:
         uniform_results = [
             SearchResult(
                 iid=f"result_{i}",
-                tier=1,
+                tier=0,
                 credibility_score=0.5,
                 date=0,
                 domain="",
@@ -166,7 +166,6 @@ class TestSearchWithRelevanceFilter:
                 "embedding": embedding_generator.embed(
                     "Climate change is causing global temperature rise"
                 ),
-                "tier": 1,
                 "credibility_score": 0.9,
                 "date": int(time.time() * 1000),
                 "domain": "climate.com",
@@ -176,7 +175,6 @@ class TestSearchWithRelevanceFilter:
                 "embedding": embedding_generator.embed(
                     "Greenhouse gases trap heat in the atmosphere"
                 ),
-                "tier": 1,
                 "credibility_score": 0.85,
                 "date": int(time.time() * 1000),
                 "domain": "climate.com",
@@ -186,7 +184,6 @@ class TestSearchWithRelevanceFilter:
                 "embedding": embedding_generator.embed(
                     "Today's weather forecast shows rain"
                 ),
-                "tier": 1,
                 "credibility_score": 0.7,
                 "date": int(time.time() * 1000),
                 "domain": "weather.com",
@@ -196,7 +193,6 @@ class TestSearchWithRelevanceFilter:
                 "embedding": embedding_generator.embed(
                     "Python is a programming language"
                 ),
-                "tier": 1,
                 "credibility_score": 0.8,
                 "date": int(time.time() * 1000),
                 "domain": "python.org",

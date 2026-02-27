@@ -14,8 +14,8 @@ from veritatis.ingestion import IngestResult, ingest_record, set_store
 from veritatis.plain_search import vector_search
 from veritatis.search import RelevanceFilter, search_with_relevance_filter
 from veritatis.vector_stores import (
-    COLLECTION_NAME,
     MilvusRecordStore,
+    collection_for_tier,
     ensure_connection,
     init_collections,
 )
@@ -121,10 +121,11 @@ async def ingest(
     date: int = Body(default=0),  # noqa: B008
     domain: str = Body(default=""),  # noqa: B008
 ):
-    """Ingest a single record into the veritatis collection.
+    """Ingest a single record into the appropriate tier collection.
 
     The ``text`` is used to generate an embedding — it is NOT stored in Milvus.
     ``iid`` must be the ``parsed_content.id`` UUID from Supabase.
+    ``tier`` selects the target collection (1 = raw, 2 = credible, 3 = verified).
     """
     try:
         result: IngestResult = ingest_record(
@@ -148,35 +149,46 @@ async def ingest(
 @app.post("/move")
 async def move(
     iids: List[str] = Body(..., embed=True),  # noqa: B008
+    source_tier: int = Body(..., embed=True),  # noqa: B008
+    target_tier: int = Body(..., embed=True),  # noqa: B008
 ):
-    """Promote records to the next tier (tier += 1).
+    """Move records between tier collections.
 
-    Provide ``iids`` — a list of ``parsed_content.id`` UUIDs whose tier
-    should be incremented by 1.
+    Provide ``iids`` — a list of ``parsed_content.id`` UUIDs,
+    ``source_tier`` (1-3), and ``target_tier`` (1-3).
     """
     store = _get_store()
     try:
-        count = store.move_records(COLLECTION_NAME, iids)
+        src = collection_for_tier(source_tier)
+        tgt = collection_for_tier(target_tier)
+        count = store.move_records(src, tgt, iids)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-    return {"moved": count}
+    return {"moved": count, "source": src, "target": tgt}
 
 
 @app.post("/update_credibility")
 async def update_credibility(
     updates: List[Dict[str, Any]] = Body(..., embed=True),  # noqa: B008
+    tier: int = Body(default=1),  # noqa: B008
 ):
     """Update credibility scores for one or more records.
 
     ``updates`` must be a list of objects, each with ``iid`` (str) and
     ``credibility_score`` (float).
+    ``tier`` selects which collection to update (1, 2, or 3).
     """
     store = _get_store()
     try:
-        count = store.update_credibility_scores(COLLECTION_NAME, updates)
+        col = collection_for_tier(tier)
+        count = store.update_credibility_scores(col, updates)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-    return {"updated": count}
+    return {"updated": count, "collection": col}
 
 
 # --- Vector search endpoint (legacy - no filtering) ---
@@ -186,7 +198,11 @@ async def search(
     top_k: int = Body(default=10),  # noqa: B008
     tier: Optional[int] = Body(default=None),  # noqa: B008
 ):
-    """Run a vector similarity search with no relevance filtering."""
+    """Run a vector similarity search with no relevance filtering.
+
+    ``tier`` selects which collection to search (1, 2, or 3).
+    When ``None``, all tier collections are searched.
+    """
     try:
         hits = vector_search(query, top_k=top_k, tier=tier)
     except Exception as e:
@@ -201,13 +217,15 @@ async def search_relevant(
     top_k: int = Body(default=10),  # noqa: B008
     relevance_threshold: Optional[float] = Body(default=None),  # noqa: B008
     use_adaptive_threshold: bool = Body(default=False),  # noqa: B008
-    collection: str = Body(default=COLLECTION_NAME),  # noqa: B008
     tier: Optional[int] = Body(default=None),  # noqa: B008
 ):
-    """Run vector search with automatic relevance filtering."""
+    """Run vector search with automatic relevance filtering.
+
+    ``tier`` selects which collection to search (1, 2, or 3).
+    When ``None``, all tier collections are searched.
+    """
     try:
         return search_with_relevance_filter(
-            collection_name=collection,
             query=query,
             top_k=top_k,
             relevance_threshold=relevance_threshold,
@@ -224,13 +242,15 @@ async def search_relevant(
 async def search_strict(
     query: str = Body(..., embed=True),  # noqa: B008
     top_k: int = Body(default=10),  # noqa: B008
-    collection: str = Body(default=COLLECTION_NAME),  # noqa: B008
     tier: Optional[int] = Body(default=None),  # noqa: B008
 ):
-    """Search with strict relevance filtering (threshold=0.7)."""
+    """Search with strict relevance filtering (threshold=0.7).
+
+    ``tier`` selects which collection to search (1, 2, or 3).
+    When ``None``, all tier collections are searched.
+    """
     try:
         response = search_with_relevance_filter(
-            collection_name=collection,
             query=query,
             top_k=top_k,
             relevance_threshold=RelevanceFilter.STRICT_THRESHOLD,
