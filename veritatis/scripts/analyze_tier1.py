@@ -173,28 +173,22 @@ def analyze_tier1(
         print_header(f"🔄 ПЕРЕМЕЩЕНИЕ В TIER 2 (порог: {threshold:.2f})")
 
         record_store = MilvusRecordStore()
+
+        ids_to_move = [v.id for v in all_ranked if v.combined_score >= threshold]
+        skipped_count = len(all_ranked) - len(ids_to_move)
+
+        results = record_store.move_records(
+            "veritatis_tier1_lake", "veritatis_tier2_arena", ids_to_move
+        )
+
         moved_count = 0
-        skipped_count = 0
-
-        for vec in all_ranked:
-            if vec.combined_score >= threshold:
-                try:
-                    success = record_store.move_record(
-                        collection_from="veritatis_tier1_lake",
-                        collection_to="veritatis_tier2_arena",
-                        record_id=vec.id,
-                    )
-
-                    if success:
-                        print(f"✅ {vec.id} → Tier 2 (score={vec.combined_score:.3f})")
-                        moved_count += 1
-                    else:
-                        print(f"⚠️  {vec.id} - не удалось переместить")
-                        skipped_count += 1
-                except Exception as e:
-                    print(f"❌ {vec.id} - ошибка: {e}")
-                    skipped_count += 1
+        for vec_id, success in results.items():
+            score = next(v.combined_score for v in all_ranked if v.id == vec_id)
+            if success:
+                print(f"✅ {vec_id} → Tier 2 (score={score:.3f})")
+                moved_count += 1
             else:
+                print(f"⚠️  {vec_id} - не удалось переместить")
                 skipped_count += 1
 
         print()

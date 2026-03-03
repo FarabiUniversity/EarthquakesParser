@@ -352,6 +352,18 @@ class MilvusRecordStore:
         print(f"Record id={record_id} moved {collection_from} -> {collection_to}")
         return True
 
+    def move_records(
+        self,
+        collection_from: str,
+        collection_to: str,
+        record_ids: List[str],
+    ) -> Dict[str, bool]:
+        """Move multiple records between collections. Returns {id: success}."""
+        return {
+            rid: self.move_record(collection_from, collection_to, rid)
+            for rid in record_ids
+        }
+
 
 def create_collection_if_not_exists(
     name: str, fields, description: str, index_params: dict

@@ -12,10 +12,10 @@
 ```
 vector_consensus.py
 ├── cosine_similarity()              Косинусное сходство двух векторов
-├── compute_pairwise_similarities()  Матрица NxN попарных сходств
-├── calculate_centrality_scores()    Централность: среднее сходство с остальными
-├── calculate_detail_scores()        Детализированность: нормализованная длина текста
-├── fetch_all_vectors()              Загрузка векторов из Milvus + перегенерация эмбеддингов
+├── compute_pairwise_similarities()  Матрица NxN попарных сходств (numpy dot-product)
+├── calculate_centrality_scores()    Централность: среднее сходство с остальными (векторизовано)
+├── calculate_detail_scores()        Детализированность: длина + лексическое разнообразие
+├── fetch_all_vectors()              Загрузка векторов из Milvus (эмбеддинги или перегенерация)
 ├── find_most_relevant_vector()      Основной API: поиск лучшего вектора в коллекции
 └── find_best_vector_with_embeddings() Поиск лучшего вектора из готового списка
 ```
@@ -44,25 +44,38 @@ Tier 3: veritatis_tier3_sanctum
 
 ## Алгоритм
 
-Итоговая оценка каждого вектора складывается из двух независимых факторов:
+Итоговая оценка каждого вектора складывается из трёх факторов (третий опциональный):
 
 ```
-combined_score = centrality_weight × centrality_score
-               + detail_weight     × detail_score
+combined_score = centrality_weight   × centrality_score
+               + detail_weight       × detail_score
+               + credibility_weight  × credibility_score
 ```
+
+По умолчанию веса 0.6 / 0.4 / 0.0 — полная обратная совместимость с предыдущим поведением.
 
 | Фактор | По умолчанию | Описание |
 |--------|-------------|----------|
 | `centrality_score` | 60% | Среднее косинусное сходство с остальными векторами коллекции |
-| `detail_score` | 40% | Нормализованная длина контента (0.0 — самый короткий, 1.0 — самый длинный) |
+| `detail_score` | 40% | Комбинация длины контента и лексического разнообразия (устраняет повторяющийся мусор) |
+| `credibility_score` | 0% | Достоверность источника из Milvus (уже нормализована в [0, 1]) |
+
+### Формула `detail_score`
+
+```
+raw = 0.7 × normalized_length + 0.3 × lexical_diversity
+detail_score = (raw − min_raw) / (max_raw − min_raw)
+```
+
+где `lexical_diversity = уникальные_слова / всего_слов`.
 
 ### Шаги вычисления
 
-1. Загрузить все записи из коллекции Milvus (без эмбеддингов — Milvus их не возвращает)
-2. Перегенерировать эмбеддинги из текста через `sentence-transformers/all-MiniLM-L6-v2`
-3. Построить матрицу NxN попарных косинусных сходств
-4. Для каждого вектора: `centrality = среднее(сходство со всеми остальными)`
-5. Для каждого вектора: `detail = (длина - min) / (max - min)`
+1. Загрузить все записи из коллекции Milvus; попытаться получить эмбеддинги напрямую
+2. Если Milvus не вернул эмбеддинги — перегенерировать из поля `content` через `all-MiniLM-L6-v2`
+3. Построить матрицу NxN косинусных сходств через numpy dot-product (векторизовано)
+4. Для каждого вектора: `centrality = (сумма строки − 1) / (N − 1)`
+5. Для каждого вектора: `detail_score` по формуле выше
 6. Вычислить `combined_score` и отсортировать по убыванию
 
 ---
@@ -87,7 +100,7 @@ class VectorAnalysis:
 
     # Вычисленные оценки
     centrality_score: float          # Среднее сходство с остальными (0.0–1.0)
-    detail_score: float              # Нормализованная длина текста  (0.0–1.0)
+    detail_score: float              # Длина + лексическое разнообразие (0.0–1.0)
     combined_score: float            # Взвешенная сумма              (0.0–1.0)
 
     # Метаданные
@@ -108,6 +121,7 @@ find_most_relevant_vector(
     collection_name: str,
     centrality_weight: float = 0.6,
     detail_weight: float = 0.4,
+    credibility_weight: float = 0.0,
     limit: Optional[int] = None,
     offset: int = 0,
 ) -> Tuple[VectorAnalysis, List[VectorAnalysis]]
@@ -118,8 +132,9 @@ find_most_relevant_vector(
 | Параметр | Тип | По умолчанию | Описание |
 |----------|-----|--------------|----------|
 | `collection_name` | `str` | — | Имя коллекции Milvus |
-| `centrality_weight` | `float` | `0.6` | Вес центральности (сумма весов должна равняться 1.0) |
+| `centrality_weight` | `float` | `0.6` | Вес центральности (все три веса должны давать 1.0) |
 | `detail_weight` | `float` | `0.4` | Вес детализированности |
+| `credibility_weight` | `float` | `0.0` | Вес достоверности источника |
 | `limit` | `int \| None` | `None` | Максимальное количество векторов для анализа |
 | `offset` | `int` | `0` | Смещение при выборке |
 
@@ -136,6 +151,7 @@ find_best_vector_with_embeddings(
     vectors_with_embeddings: List[Dict[str, Any]],
     centrality_weight: float = 0.6,
     detail_weight: float = 0.4,
+    credibility_weight: float = 0.0,
 ) -> Tuple[VectorAnalysis, List[VectorAnalysis]]
 ```
 
@@ -156,7 +172,7 @@ fetch_all_vectors(
 ) -> List[Dict[str, Any]]
 ```
 
-> **Важно:** Milvus не возвращает векторы при `query()`. Функция автоматически перегенерирует эмбеддинги из поля `content` через ту же модель, что использовалась при индексации — результаты остаются консистентны.
+> **Примечание:** Функция запрашивает поле `embedding` из Milvus. Если Milvus его не вернул (поведение зависит от версии), эмбеддинги автоматически перегенерируются из поля `content` через ту же модель — результаты остаются консистентны.
 
 ---
 
@@ -254,28 +270,24 @@ vectors = [
 best, all_ranked = find_best_vector_with_embeddings(vectors)
 ```
 
-### Вывод топ-5 и продвижение в Tier 2
+### Вывод топ-5 и продвижение в Tier 2 (через API)
+
+```bash
+curl -X POST http://localhost:8000/consensus/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"top_n": 5, "threshold": 0.7}'
+```
+
+### Вывод топ-5 и продвижение в Tier 2 (Python)
 
 ```python
 from veritatis.vector_consensus import find_most_relevant_vector
-from veritatis.vector_stores import MilvusRecordStore
 
 best, all_ranked = find_most_relevant_vector("veritatis_tier1_lake")
-
-store = MilvusRecordStore()
 
 print("Топ-5 векторов:")
 for i, v in enumerate(all_ranked[:5], 1):
     print(f"  {i}. {v.id}  score={v.combined_score:.3f}  len={v.content_length}")
-
-# Переместить лучший вектор в Tier 2
-if best.combined_score >= 0.7:
-    store.move_record(
-        best.id,
-        source_collection="veritatis_tier1_lake",
-        target_collection="veritatis_tier2_arena",
-    )
-    print(f"Вектор {best.id} перемещён в Tier 2")
 ```
 
 ---
@@ -290,7 +302,7 @@ if best.combined_score >= 0.7:
 | 1 000 | ~ 10 сек |
 | 5 000 | ~ 4–5 мин |
 
-Сложность: **O(N²)** по числу попарных сравнений. При больших коллекциях рекомендуется использовать параметр `limit`.
+Сложность: **O(N²)** по числу попарных сравнений, реализовано через numpy dot-product — значительно быстрее, чем Python-цикл. При больших коллекциях рекомендуется использовать параметр `limit`.
 
 ---
 
@@ -301,7 +313,7 @@ if best.combined_score >= 0.7:
 | Один вектор в коллекции | Возвращается с оценками `1.0` для всех полей |
 | Все тексты одинаковой длины | `detail_score = 1.0` для всех; победителя определяет `centrality_score` |
 | Пустая коллекция | Выбрасывает `ValueError` |
-| `centrality_weight + detail_weight ≠ 1.0` | Выбрасывает `AssertionError` |
+| `centrality_weight + detail_weight + credibility_weight ≠ 1.0` | Выбрасывает `AssertionError` |
 | Все векторы идентичны | `centrality_score ≈ 1.0` для всех; победителя определяет `detail_score` |
 
 ---
@@ -322,21 +334,142 @@ python tests/demo_vector_consensus.py
 
 ---
 
-## CLI-инструмент
+## API эндпойнт: POST /consensus/analyze
 
-Для анализа Tier 1 из командной строки используйте `scripts/analyze_tier1.py`.
-Подробнее: [README_ANALYZE_TIER1.md](README_ANALYZE_TIER1.md).
+Единственный рабочий способ запустить консенсусный анализ через HTTP.
+
+```http
+POST /consensus/analyze
+Content-Type: application/json
+
+{
+    "limit": 100,
+    "top_n": 10,
+    "threshold": 0.7,
+    "centrality_weight": 0.6,
+    "detail_weight": 0.4,
+    "credibility_weight": 0.0
+}
+```
+
+**Параметры тела запроса:**
+
+| Параметр | Тип | По умолчанию | Описание |
+|----------|-----|--------------|----------|
+| `limit` | `int \| null` | `null` | Максимум векторов из Tier 1 (null = все) |
+| `top_n` | `int` | `10` | Сколько векторов включить в ранжированный список |
+| `threshold` | `float` | `0.7` | Порог для поля `above_threshold_count` в статистике |
+| `centrality_weight` | `float` | `0.6` | Вес центральности |
+| `detail_weight` | `float` | `0.4` | Вес детализированности |
+| `credibility_weight` | `float` | `0.0` | Вес достоверности источника |
+
+Сумма трёх весов должна равняться 1.0, иначе возвращается HTTP 422.
+
+**Ответ:**
+
+```json
+{
+    "analyzed_count": 50,
+    "best_vector": {
+        "id": "abc123",
+        "content": "Землетрясение магнитудой 7.8...",
+        "source_url": "https://news.example.com/1",
+        "credibility_score": 0.85,
+        "centrality_score": 0.823,
+        "detail_score": 0.756,
+        "combined_score": 0.796,
+        "content_length": 1234
+    },
+    "moved_to_tier2": true,
+    "top_n": [
+        {"rank": 1, "id": "abc123", "combined_score": 0.796, ...},
+        ...
+    ],
+    "stats": {
+        "avg_combined_score": 0.65,
+        "min_combined_score": 0.32,
+        "max_combined_score": 0.796,
+        "avg_centrality_score": 0.70,
+        "avg_detail_score": 0.55,
+        "above_threshold_count": 12,
+        "threshold_used": 0.7
+    }
+}
+```
+
+> **Важно:** лучший вектор **всегда** перемещается в Tier 2 независимо от его score.
+> `threshold` используется только для поля `above_threshold_count` в статистике.
+
+---
+
+## CLI-инструмент: analyze_tier1.py
+
+Скрипт `scripts/analyze_tier1.py` анализирует векторы из Tier 1 и опционально перемещает лучшие в Tier 2.
+
+### Быстрый старт
 
 ```bash
-# Базовый анализ
+# 1. Запустить Milvus (если ещё не запущен)
+cd veritatis && docker-compose up -d
+
+# 2. Базовый анализ (все векторы)
 python scripts/analyze_tier1.py
 
-# Анализ 200 записей с уклоном в центральность
-python scripts/analyze_tier1.py --limit 200 --centrality-weight 0.8 --detail-weight 0.2
+# 3. Анализ с ограничением (быстрее для больших коллекций)
+python scripts/analyze_tier1.py --limit 100
 
-# Автоматически переместить лучшие векторы в Tier 2
+# 4. Акцент на консенсус
+python scripts/analyze_tier1.py --centrality-weight 0.9 --detail-weight 0.1
+
+# 5. Акцент на детальность
+python scripts/analyze_tier1.py --centrality-weight 0.2 --detail-weight 0.8
+
+# 6. Переместить лучшие в Tier 2
 python scripts/analyze_tier1.py --move-to-tier2 --threshold 0.7
+
+# 7. Показать топ-20
+python scripts/analyze_tier1.py --top-n 20
 ```
+
+### Все параметры
+
+| Параметр | Описание | По умолчанию |
+|----------|----------|--------------|
+| `--limit N` | Анализировать первые N векторов | Все |
+| `--centrality-weight W` | Вес центральности (0–1) | 0.6 |
+| `--detail-weight W` | Вес детальности (0–1) | 0.4 |
+| `--top-n N` | Показать топ-N результатов | 10 |
+| `--move-to-tier2` | Переместить лучшие в Tier 2 | false |
+| `--threshold T` | Порог для перемещения (0–1) | 0.7 |
+
+**Важно:** `centrality-weight + detail-weight` должны в сумме давать 1.0.
+
+### Типичные сценарии
+
+```bash
+# Быстрая проверка качества данных
+python scripts/analyze_tier1.py --limit 50 --top-n 5
+
+# Найти консенсусные новости
+python scripts/analyze_tier1.py --centrality-weight 0.9 --detail-weight 0.1 --top-n 5
+
+# Найти самые подробные репортажи
+python scripts/analyze_tier1.py --centrality-weight 0.1 --detail-weight 0.9 --top-n 5
+
+# Автоматическая фильтрация в Tier 2
+python scripts/analyze_tier1.py --move-to-tier2 --threshold 0.75
+```
+
+### Интерпретация результатов
+
+| Метрика | Диапазон | Значение |
+|---------|----------|----------|
+| `centrality_score` | 0.0–0.3 | Вектор — outlier |
+| `centrality_score` | 0.6–1.0 | Высокая согласованность |
+| `detail_score` | 0.0 | Самый короткий / однообразный текст |
+| `detail_score` | 1.0 | Самый длинный и разнообразный текст |
+| `combined_score` | < 0.5 | Не рекомендуется для Tier 2 |
+| `combined_score` | ≥ 0.7 | Рекомендуется для Tier 2 |
 
 ---
 
@@ -352,7 +485,6 @@ python scripts/analyze_tier1.py --move-to-tier2 --threshold 0.7
 
 ## См. также
 
-- [README_ANALYZE_TIER1.md](README_ANALYZE_TIER1.md) — руководство по CLI-инструменту анализа Tier 1
 - `veritatis/vector_stores.py` — управление коллекциями Milvus (Tier 1/2/3)
 - `veritatis/embeddings.py` — модель генерации эмбеддингов
 - `veritatis/search.py` — поиск с фильтрацией по релевантности (классический запрос → результаты)
