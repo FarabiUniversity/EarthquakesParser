@@ -30,11 +30,20 @@ docker compose up -d --build
 
 - `GET /health` — health check
 - `POST /ingest` — body `{ content: str, source_url?: str }` → dedup, embed, insert into Tier 1
+- `POST /move` — move records between tiers
 
 Run API locally:
 
 ```zsh
 poetry run uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+Move a record between tiers (example: tier1 → tier2):
+
+```zsh
+curl -sS -X POST "http://127.0.0.1:8000/move" \
+  -H "Content-Type: application/json" \
+  -d '{"iids":["181abbb9-8211-45bc-9c84-51add70667e2"],"source_tier":1,"target_tier":2}'
 ```
 
 ### Milvus Collections

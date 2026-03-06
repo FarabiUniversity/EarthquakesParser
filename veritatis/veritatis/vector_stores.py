@@ -282,6 +282,8 @@ class MilvusRecordStore:
         self,
         collection_name: str,
         record: Union[Dict[str, Any], List[Dict[str, Any]]],
+        *,
+        flush: bool = True,
     ):
         """Insert one or more records into the given collection.
 
@@ -312,12 +314,16 @@ class MilvusRecordStore:
             data_columns.append(column)
 
         res = collection.insert(data_columns)
-        collection.flush()  # Ensure data is persisted and available for queries
-        print(
-            f"Inserted {len(rows)} record(s) into {collection_name}; "
-            f"primary_keys={getattr(res, 'primary_keys', None)}"
-        )
+
+        if flush:
+            collection.flush()  # Ensure data is persisted and available for queries
         return getattr(res, "primary_keys", None)
+
+    def flush_collection(self, collection_name: str) -> None:
+        """Flush a collection so inserts are persisted and queryable."""
+        ensure_collection_loaded(collection_name)
+        collection = Collection(collection_name)
+        collection.flush()
 
     def record_exists(self, collection_name: str, record_iid: str) -> bool:
         """Return True if a record with primary key iid exists in the collection."""
