@@ -57,24 +57,28 @@ def test_collection(milvus_connection):
     """
     Create a temporary test collection for integration tests.
 
+    Uses the same schema as the production ``veritatis`` collection.
     Automatically cleans up after each test.
     """
-    collection_name = "test_relevance_collection"
+    collection_name = "test_veritatis_collection"
 
     # Clean up any existing test collection
     if utility.has_collection(collection_name):
         utility.drop_collection(collection_name)
         logger.info(f"🧹 Dropped existing test collection '{collection_name}'")
 
-    # Define schema for test collection (same as tier1)
+    # Schema mirrors the veritatis tier collections (no tier field)
     fields = [
-        FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=100),
-        FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=10000),
+        FieldSchema(
+            name="iid",
+            dtype=DataType.VARCHAR,
+            is_primary=True,
+            max_length=64,
+        ),
         FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=384),
-        FieldSchema(name="source_url", dtype=DataType.VARCHAR, max_length=500),
         FieldSchema(name="credibility_score", dtype=DataType.FLOAT),
-        FieldSchema(name="ingested_timestamp", dtype=DataType.INT64),
-        FieldSchema(name="supabase_id", dtype=DataType.VARCHAR, max_length=100),
+        FieldSchema(name="date", dtype=DataType.INT64),
+        FieldSchema(name="domain", dtype=DataType.VARCHAR, max_length=500),
     ]
 
     index_params = {
@@ -91,7 +95,7 @@ def test_collection(milvus_connection):
     create_collection_if_not_exists(
         collection_name,
         fields,
-        "Test collection for relevance filtering tests",
+        "Test collection for veritatis integration tests",
         index_params,
     )
 

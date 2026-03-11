@@ -1,9 +1,10 @@
 """Supabase database utility - low-level database operations."""
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import pandas as pd
+if TYPE_CHECKING:  # pragma: no cover
+    import pandas as pd
 
 
 class SupabaseDB:
@@ -33,7 +34,10 @@ class SupabaseDB:
 
         # Get credentials
         self.url = url or os.getenv("SUPABASE_URL")
-        self.key = key or os.getenv("SUPABASE_KEY")
+        # Prefer service role key when present for backend/server usage.
+        self.key = (
+            key or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        )
 
         if not self.url or not self.key:
             raise ValueError(
@@ -82,7 +86,7 @@ class SupabaseDB:
         columns: str = "*",
         filters: Optional[Dict[str, Any]] = None,
         limit: Optional[int] = None,
-    ) -> pd.DataFrame:
+    ) -> "pd.DataFrame":
         """Select records from table.
 
         Args:
@@ -107,10 +111,14 @@ class SupabaseDB:
                 query = query.limit(limit)
 
             response = query.execute()
+            import pandas as pd
+
             return pd.DataFrame(response.data)
 
         except Exception as e:
             print(f"Error selecting from {table}: {e}")
+            import pandas as pd
+
             return pd.DataFrame()
 
     def update(
@@ -206,7 +214,7 @@ class SupabaseDB:
             print(f"Error getting record from {table}: {e}")
             return None
 
-    def execute_sql(self, query: str) -> pd.DataFrame:
+    def execute_sql(self, query: str) -> "pd.DataFrame":
         """Execute raw SQL query.
 
         Args:
@@ -217,8 +225,12 @@ class SupabaseDB:
         """
         try:
             response = self.client.rpc("execute_sql", {"query": query}).execute()
+            import pandas as pd
+
             return pd.DataFrame(response.data)
 
         except Exception as e:
             print(f"Error executing SQL: {e}")
+            import pandas as pd
+
             return pd.DataFrame()
