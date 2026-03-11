@@ -88,8 +88,6 @@ env/
 .DS_Store
 
 # Project specific - generated data files
-data/*.csv
-data/*.json
 !data/README.md
 sandbox/data/
 sandbox/[0-9]*/*.py
