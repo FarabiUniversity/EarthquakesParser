@@ -11,6 +11,7 @@ After successful ingestion the Supabase rows are marked ``status='ingested'``.
 import importlib
 import json
 import logging
+import multiprocessing as mp
 import os
 import threading
 import time
@@ -21,6 +22,12 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, cast
 from postgrest.exceptions import APIError
 
 from veritatis.ingestion import get_store, ingest_record
+from veritatis.vector_stores import collection_for_tier
+
+# gRPC (used indirectly by pymilvus) can emit noisy Abseil logs to STDERR on macOS
+# in some grpcio versions. Allow users to override, but default to silence.
+os.environ.setdefault("GRPC_VERBOSITY", "NONE")
+
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +257,8 @@ def send_to_ingest(records: List[Dict[str, Any]]) -> List[str]:
     # initialization when using threads.
     store = get_store()
 
-    target_collection = "veritatis_tier1"
+    tier = 1
+    target_collection = collection_for_tier(tier)
 
     def _ingest_one(row: Dict[str, Any]) -> Optional[str]:
         text = normalize_main_text(row.get("main_text"))
@@ -271,7 +279,7 @@ def send_to_ingest(records: List[Dict[str, Any]]) -> List[str]:
         res = ingest_record(
             text,
             iid=parsed_content_id,
-            tier=1,
+            tier=tier,
             credibility_score=0.0,
             date=date_ms,
             domain=domain,
@@ -334,4 +342,11 @@ def main():
 
 
 if __name__ == "__main__":
+    # gRPC (used by pymilvus) is not fork-safe once background threads exist.
+    # Prefer 'spawn' if multiprocessing is used to avoid fork-related issues.
+    try:
+        if mp.get_start_method(allow_none=True) != "spawn":
+            mp.set_start_method("spawn")
+    except RuntimeError:
+        pass
     main()

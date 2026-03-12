@@ -33,9 +33,9 @@ MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
 MILVUS_PORT = int(os.getenv("MILVUS_PORT", "19530"))
 
 # One collection per credibility tier.
-TIER1_COLLECTION = "veritatis_tier1"  # raw / unverified
-TIER2_COLLECTION = "veritatis_tier2"  # credible (score > 0.7)
-TIER3_COLLECTION = "veritatis_tier3"  # verified
+TIER1_COLLECTION = "veritatis_tier1_lake"  # raw / unverified
+TIER2_COLLECTION = "veritatis_tier2_arena"  # credible (score > 0.7)
+TIER3_COLLECTION = "veritatis_tier3_sanctum"  # verified
 
 ALL_TIER_COLLECTIONS = [TIER1_COLLECTION, TIER2_COLLECTION, TIER3_COLLECTION]
 
