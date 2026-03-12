@@ -55,6 +55,7 @@ def extract_detailed_metrics(data: dict) -> pd.DataFrame:
 
     for model_name, model_data in models.items():
         for item in model_data["details"]:
+            gpt = item.get("gpt_judgment") or {}
             details.append(
                 {
                     "Model": model_name,
@@ -66,10 +67,10 @@ def extract_detailed_metrics(data: dict) -> pd.DataFrame:
                     "Extraction Score": item["extraction_accuracy"][
                         "extraction_accuracy_score"
                     ],
-                    "GPT Score": item["gpt_judgment"]["score"],
-                    "GPT Confidence": item["gpt_judgment"]["confidence"],
-                    "Main Text Quality": item["gpt_judgment"]["main_text_quality"],
-                    "Date Quality": item["gpt_judgment"]["date_quality"],
+                    "GPT Score": gpt.get("score", 0),
+                    "GPT Confidence": gpt.get("confidence", 0),
+                    "Main Text Quality": gpt.get("main_text_quality", 0),
+                    "Date Quality": gpt.get("date_quality", 0),
                 }
             )
 
@@ -194,7 +195,7 @@ def plot_summary_comparison(df: pd.DataFrame, output_dir: str = "."):
     """График сравнения основных метрик моделей."""
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     fig.suptitle(
-        "Сравнение моделей по ключевым метрикам", fontsize=16, fontweight="bold"
+        "Model Comparison by Key Metrics", fontsize=16, fontweight="bold"
     )
 
     models = df["Model"].tolist()
@@ -206,7 +207,7 @@ def plot_summary_comparison(df: pd.DataFrame, output_dir: str = "."):
         models, df["Success Rate (%)"], color=colors, edgecolor="black", linewidth=1.2
     )
     ax1.set_ylabel("Success Rate (%)")
-    ax1.set_title("Успешность извлечения")
+    ax1.set_title("Extraction Success Rate")
     ax1.set_ylim(0, 100)
     for bar, val in zip(bars1, df["Success Rate (%)"]):
         ax1.text(
@@ -224,7 +225,7 @@ def plot_summary_comparison(df: pd.DataFrame, output_dir: str = "."):
         models, df["Extraction Acc (%)"], color=colors, edgecolor="black", linewidth=1.2
     )
     ax2.set_ylabel("Extraction Accuracy (%)")
-    ax2.set_title("Точность извлечения")
+    ax2.set_title("Extraction Accuracy")
     ax2.set_ylim(0, 100)
     for bar, val in zip(bars2, df["Extraction Acc (%)"]):
         ax2.text(
@@ -242,7 +243,7 @@ def plot_summary_comparison(df: pd.DataFrame, output_dir: str = "."):
         models, df["GPT Quality (%)"], color=colors, edgecolor="black", linewidth=1.2
     )
     ax3.set_ylabel("GPT Quality (%)")
-    ax3.set_title("Качество по оценке GPT")
+    ax3.set_title("GPT Quality Score")
     ax3.set_ylim(0, 100)
     for bar, val in zip(bars3, df["GPT Quality (%)"]):
         ax3.text(
@@ -260,7 +261,7 @@ def plot_summary_comparison(df: pd.DataFrame, output_dir: str = "."):
         models, df["Final Score"], color=colors, edgecolor="black", linewidth=1.2
     )
     ax4.set_ylabel("Final Score")
-    ax4.set_title("Итоговый счёт (из 100)")
+    ax4.set_title("Final Score (out of 100)")
     ax4.set_ylim(0, 100)
     for bar, val in zip(bars4, df["Final Score"]):
         ax4.text(
@@ -312,7 +313,7 @@ def plot_radar_chart(df: pd.DataFrame, output_dir: str = "."):
     ax.set_xticklabels(categories, fontsize=12)
     ax.set_ylim(0, 100)
     ax.set_title(
-        "Радарная диаграмма: Сравнение моделей", fontsize=14, fontweight="bold", pad=20
+        "Radar Chart: Model Comparison", fontsize=14, fontweight="bold", pad=20
     )
     ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
 
@@ -356,7 +357,7 @@ def plot_domain_heatmap(details_df: pd.DataFrame, output_dir: str = "."):
                     fontweight="bold",
                 )
 
-    ax.set_title("GPT Score по доменам и моделям", fontsize=14, fontweight="bold")
+    ax.set_title("GPT Score by Domain and Model", fontsize=14, fontweight="bold")
     fig.colorbar(im, ax=ax, label="GPT Score (0-10)")
 
     plt.tight_layout()
@@ -382,9 +383,9 @@ def plot_quality_distribution(details_df: pd.DataFrame, output_dir: str = "."):
         patch.set_facecolor(color)
         patch.set_alpha(0.7)
     ax1.set_ylabel("GPT Score")
-    ax1.set_title("Распределение GPT Score по моделям")
+    ax1.set_title("GPT Score Distribution by Model")
     ax1.set_ylim(0, 10)
-    ax1.axhline(y=5, color="red", linestyle="--", alpha=0.5, label="Средний уровень")
+    ax1.axhline(y=5, color="red", linestyle="--", alpha=0.5, label="Average level")
     ax1.legend()
 
     # 2. Box plot для Main Text Quality
@@ -397,9 +398,9 @@ def plot_quality_distribution(details_df: pd.DataFrame, output_dir: str = "."):
         patch.set_facecolor(color)
         patch.set_alpha(0.7)
     ax2.set_ylabel("Main Text Quality")
-    ax2.set_title("Распределение качества извлечения текста")
+    ax2.set_title("Text Extraction Quality Distribution")
     ax2.set_ylim(0, 10)
-    ax2.axhline(y=5, color="red", linestyle="--", alpha=0.5, label="Средний уровень")
+    ax2.axhline(y=5, color="red", linestyle="--", alpha=0.5, label="Average level")
     ax2.legend()
 
     plt.tight_layout()
@@ -430,22 +431,22 @@ def plot_text_vs_date_quality(details_df: pd.DataFrame, output_dir: str = "."):
 
     ax.set_xlabel("Main Text Quality (0-10)")
     ax.set_ylabel("Date Quality (0-10)")
-    ax.set_title("Качество извлечения текста vs Качество извлечения даты")
+    ax.set_title("Text Extraction Quality vs Date Extraction Quality")
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 10)
     ax.axhline(y=5, color="gray", linestyle="--", alpha=0.3)
     ax.axvline(x=5, color="gray", linestyle="--", alpha=0.3)
     ax.legend()
 
-    # Добавить квадранты
-    ax.text(7.5, 7.5, "Отлично", fontsize=12, ha="center", color="green", alpha=0.7)
+    # Add quadrant labels
+    ax.text(7.5, 7.5, "Excellent", fontsize=12, ha="center", color="green", alpha=0.7)
     ax.text(
-        2.5, 7.5, "Текст слабый", fontsize=10, ha="center", color="orange", alpha=0.7
+        2.5, 7.5, "Weak Text", fontsize=10, ha="center", color="orange", alpha=0.7
     )
     ax.text(
-        7.5, 2.5, "Дата слабая", fontsize=10, ha="center", color="orange", alpha=0.7
+        7.5, 2.5, "Weak Date", fontsize=10, ha="center", color="orange", alpha=0.7
     )
-    ax.text(2.5, 2.5, "Плохо", fontsize=12, ha="center", color="red", alpha=0.7)
+    ax.text(2.5, 2.5, "Poor", fontsize=12, ha="center", color="red", alpha=0.7)
 
     plt.tight_layout()
     plt.savefig(f"{output_dir}/text_vs_date_quality.png", dpi=150, bbox_inches="tight")
@@ -485,7 +486,7 @@ def plot_stacked_metrics(df: pd.DataFrame, output_dir: str = "."):
     )
 
     ax.set_ylabel("Weighted Score Components")
-    ax.set_title("Декомпозиция итогового счёта по компонентам")
+    ax.set_title("Final Score Decomposition by Components")
     ax.set_xticks(x)
     ax.set_xticklabels([m.upper() for m in models])
     ax.legend(loc="upper right")
@@ -522,7 +523,7 @@ def plot_error_analysis(error_df: pd.DataFrame, output_dir: str = "."):
 
     fig, axes = plt.subplots(2, 1, figsize=(14, 12))
     fig.suptitle(
-        "Анализ ошибок по источникам (доменам)", fontsize=16, fontweight="bold"
+        "Error Analysis by Source (Domains)", fontsize=16, fontweight="bold"
     )
 
     # 1. Топ-10 доменов по общему количеству ошибок
@@ -536,8 +537,8 @@ def plot_error_analysis(error_df: pd.DataFrame, output_dir: str = "."):
     bars = ax1.barh(range(len(top_domains)), top_domains.values, color=colors_gradient)
     ax1.set_yticks(range(len(top_domains)))
     ax1.set_yticklabels(top_domains.index)
-    ax1.set_xlabel("Количество ошибок")
-    ax1.set_title("Топ-10 доменов с наибольшим количеством ошибок")
+    ax1.set_xlabel("Number of Errors")
+    ax1.set_title("Top 10 Domains with Most Errors")
     ax1.invert_yaxis()
 
     # Добавить значения на столбцах
@@ -582,8 +583,8 @@ def plot_error_analysis(error_df: pd.DataFrame, output_dir: str = "."):
 
     ax2.set_yticks(x_pos)
     ax2.set_yticklabels(error_by_category.index)
-    ax2.set_xlabel("Количество ошибок по категориям")
-    ax2.set_title("Распределение типов ошибок по топ-доменам")
+    ax2.set_xlabel("Number of Errors by Category")
+    ax2.set_title("Error Type Distribution for Top Domains")
     ax2.legend(loc="lower right", fontsize=9)
     ax2.invert_yaxis()
 
@@ -700,7 +701,7 @@ def generate_html_report(
         <h3>{model.upper()}</h3>
         <table>
             <tr>
-                <th>Домен</th>
+                <th>Domain</th>
                 <th>Text Length</th>
                 <th>Extraction Score</th>
                 <th>GPT Score</th>
@@ -750,35 +751,35 @@ def generate_html_report(
 
         error_section = f"""
     <div class="summary-card">
-        <h2>🔍 Анализ ошибок по источникам</h2>
-        <p>Топ-10 доменов с наибольшим количеством ошибок в селекторах</p>
+        <h2>🔍 Error Analysis by Source</h2>
+        <p>Top 10 domains with the highest number of selector errors</p>
         <table>
             <tr>
-                <th>Домен</th>
-                <th>Всего ошибок</th>
-                <th>Штраф (баллы)</th>
-                <th>Распределение по категориям</th>
+                <th>Domain</th>
+                <th>Total Errors</th>
+                <th>Penalty (points)</th>
+                <th>Category Breakdown</th>
             </tr>
             {''.join(error_rows)}
         </table>
 
-        <h3 style="margin-top: 30px;">Категории ошибок:</h3>
+        <h3 style="margin-top: 30px;">Error Categories:</h3>
         <ul style="line-height: 1.8;">
-            <li><strong>Missing Content</strong> (критичная): важный контент не извлечен</li>
-            <li><strong>Excessive Noise</strong> (средняя): извлечен лишний контент (реклама, навигация)</li>
-            <li><strong>Wrong Element</strong> (критичная): селектор указывает на неверный элемент</li>
-            <li><strong>Fragility</strong> (мелкая): хрупкие селекторы (nth-child, длинные цепочки)</li>
+            <li><strong>Missing Content</strong> (critical): important content was not extracted</li>
+            <li><strong>Excessive Noise</strong> (medium): extra content extracted (ads, navigation)</li>
+            <li><strong>Wrong Element</strong> (critical): selector points to wrong element</li>
+            <li><strong>Fragility</strong> (minor): fragile selectors (nth-child, long chains)</li>
         </ul>
     </div>
     """
 
     html_content = f"""
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Отчёт по оценке моделей</title>
+    <title>Model Evaluation Report</title>
     <style>
         body {{
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -839,18 +840,18 @@ def generate_html_report(
     </style>
 </head>
 <body>
-    <h1>📊 Отчёт по оценке моделей извлечения HTML</h1>
+    <h1>📊 HTML Extraction Model Evaluation Report</h1>
 
     <div class="winner">
-        🏆 Победитель: <strong>{summary_df.iloc[0]['Model'].upper()}</strong>
-        с итоговым счётом <strong>{summary_df.iloc[0]['Final Score']:.2f}/100</strong>
+        🏆 Winner: <strong>{summary_df.iloc[0]['Model'].upper()}</strong>
+        with final score <strong>{summary_df.iloc[0]['Final Score']:.2f}/100</strong>
     </div>
 
     <div class="summary-card">
-        <h2>Сводная таблица</h2>
+        <h2>Summary Table</h2>
         <table>
             <tr>
-                <th>Модель</th>
+                <th>Model</th>
                 <th>Success Rate</th>
                 <th>Extraction Acc</th>
                 <th>GPT Quality</th>
@@ -861,27 +862,27 @@ def generate_html_report(
     </div>
 
     <div class="summary-card">
-        <h2>Визуализации</h2>
+        <h2>Visualizations</h2>
         <div class="image-gallery">
-            <img src="model_comparison_bars.png" alt="Сравнение моделей">
-            <img src="model_radar_chart.png" alt="Радарная диаграмма">
-            <img src="domain_heatmap.png" alt="Тепловая карта по доменам">
-            <img src="quality_distribution.png" alt="Распределение качества">
-            <img src="text_vs_date_quality.png" alt="Текст vs Дата">
-            <img src="score_decomposition.png" alt="Декомпозиция счёта">
-            <img src="error_analysis.png" alt="Анализ ошибок">
+            <img src="model_comparison_bars.png" alt="Model Comparison">
+            <img src="model_radar_chart.png" alt="Radar Chart">
+            <img src="domain_heatmap.png" alt="Domain Heatmap">
+            <img src="quality_distribution.png" alt="Quality Distribution">
+            <img src="text_vs_date_quality.png" alt="Text vs Date Quality">
+            <img src="score_decomposition.png" alt="Score Decomposition">
+            <img src="error_analysis.png" alt="Error Analysis">
         </div>
     </div>
 
     {error_section}
 
     <div class="summary-card">
-        <h2>Статистика по моделям</h2>
+        <h2>Model Statistics</h2>
         {''.join(model_sections)}
     </div>
 
     <footer style="text-align: center; margin-top: 40px; color: #7f8c8d;">
-        <p>Отчёт сгенерирован автоматически</p>
+        <p>Report generated automatically</p>
     </footer>
 </body>
 </html>
@@ -936,7 +937,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         json_path = sys.argv[1]
     else:
-        json_path = "model_evaluation.json"
+        json_path = "data/data/model_evaluation.json"
 
     if len(sys.argv) > 2:
         output_dir = sys.argv[2]
