@@ -50,16 +50,13 @@ pytest tests/test_vector_consensus.py -v -m "not integration"
 
 ```bash
 # Сначала запустить Milvus через Docker
-docker-compose up -d
+docker compose up -d
 
 # Подождать пока Milvus запустится (~30 секунд)
 sleep 30
 
-# Запустить все тесты
-pytest tests/test_vector_consensus.py -v
-
-# Ожидаемый вывод:
-# test_find_best_from_test_collection PASSED ✅
+# Запустить интеграционные тесты для Milvus store
+pytest tests/test_vector_store_integration.py -v
 ```
 
 ## 📝 Основные файлы
@@ -86,7 +83,7 @@ best, all_ranked = find_most_relevant_vector(
     detail_weight=0.4,      # 40% вес детальности
 )
 
-print(f"🏆 Лучший: {best.id}")
+print(f"🏆 Лучший: {best.iid}")
 print(f"📊 Центральность: {best.centrality_score:.3f}")
 print(f"📝 Детальность: {best.detail_score:.3f}")
 print(f"⭐ Общий балл: {best.combined_score:.3f}")
@@ -99,9 +96,10 @@ from veritatis.vector_consensus import find_best_vector_with_embeddings
 
 vectors = [
     {
-        "id": "v1",
-        "content": "Текст...",
-        "source_url": "http://...",
+        "iid": "v1",
+        "main_text": "Текст...",
+        "date": 0,
+        "domain": "",
         "embedding": [0.1, 0.2, ...],  # 384-мерный
         # ... другие поля
     },
@@ -135,9 +133,9 @@ for vec in all_ranked:
         record_store.move_records(
             "veritatis_tier1_lake",
             "veritatis_tier2_arena",
-            vec.id
+            [vec.iid]
         )
-        print(f"✅ {vec.id} → Tier 2 (score={vec.combined_score:.3f})")
+        print(f"✅ {vec.iid} → Tier 2 (score={vec.combined_score:.3f})")
 ```
 
 ### Задача 2: Акцент на консенсус
@@ -150,7 +148,7 @@ best, _ = find_most_relevant_vector(
     detail_weight=0.1,
 )
 
-print(f"Консенсус: {best.id}")
+print(f"Консенсус: {best.iid}")
 print(f"Средняя схожесть: {best.avg_similarity_to_others:.3f}")
 ```
 
@@ -164,8 +162,8 @@ best, _ = find_most_relevant_vector(
     detail_weight=0.8,  # 80% детальность
 )
 
-print(f"Самый подробный: {best.id}")
-print(f"Длина: {best.content_length} символов")
+print(f"Самый подробный: {best.iid}")
+print(f"Длина: {best.main_text_length} символов")
 ```
 
 ## 🐛 Отладка

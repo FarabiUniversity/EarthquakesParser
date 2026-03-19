@@ -250,25 +250,19 @@ async def consensus_analyze(
         logger.error(f"Consensus analysis error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-    # Move best vector to Tier 2 (schema mapping: Tier1 -> Tier2 fields)
+    # Move best vector to Tier 2 (same schema across tiers)
     moved = False
     move_error: Optional[str] = None
     try:
-        tier2_record = {
-            "id": best.id,
-            "content": best.content,
-            "embedding": best.embedding,
-            "verification_confidence": 0.0,
-            "cross_source_count": 1,
-            "supabase_id": best.supabase_id,
-        }
-        _store.insert_record(_TIER2, tier2_record)
-        _store.delete_record(_TIER1, best.id)
-        moved = True
-        logger.info(f"Moved best vector {best.id} from Tier 1 to Tier 2")
+        moved_count = _store.move_records(_TIER1, _TIER2, [best.iid])
+        moved = moved_count == 1
+        if moved:
+            logger.info(f"Moved best vector {best.iid} from Tier 1 to Tier 2")
+        else:
+            move_error = "Record was not found in Tier 1 (already moved?)"
     except Exception as e:
         move_error = str(e)
-        logger.error(f"Failed to move vector {best.id} to Tier 2: {e}")
+        logger.error(f"Failed to move vector {best.iid} to Tier 2: {e}")
 
     # Build stats
     scores = [v.combined_score for v in all_ranked]
@@ -279,11 +273,11 @@ async def consensus_analyze(
     top_list: List[Dict[str, Any]] = [
         {
             "rank": i + 1,
-            "id": v.id,
+            "iid": v.iid,
             "combined_score": round(v.combined_score, 4),
             "centrality_score": round(v.centrality_score, 4),
             "detail_score": round(v.detail_score, 4),
-            "content_length": v.content_length,
+            "main_text_length": v.main_text_length,
         }
         for i, v in enumerate(all_ranked[:top_n])
     ]
@@ -291,14 +285,15 @@ async def consensus_analyze(
     response: Dict[str, Any] = {
         "analyzed_count": n,
         "best_vector": {
-            "id": best.id,
-            "content": best.content,
-            "source_url": best.source_url,
+            "iid": best.iid,
+            "main_text": best.main_text,
             "credibility_score": best.credibility_score,
+            "date": best.date,
+            "domain": best.domain,
             "centrality_score": round(best.centrality_score, 4),
             "detail_score": round(best.detail_score, 4),
             "combined_score": round(best.combined_score, 4),
-            "content_length": best.content_length,
+            "main_text_length": best.main_text_length,
         },
         "moved_to_tier2": moved,
         "top_n": top_list,

@@ -14,6 +14,7 @@ from typing import Optional
 
 from veritatis.embeddings import embedding_generator
 from veritatis.vector_stores import (
+    ALL_TIER_COLLECTIONS,
     MilvusRecordStore,
     collection_for_tier,
     ensure_connection,
@@ -91,10 +92,12 @@ def ingest_record(
     store = store or get_store()
     target_collection = collection_for_tier(tier)
 
-    # Dedup: check if iid already exists
-    exists = store.record_exists(target_collection, iid)
-    if exists:
-        return IngestResult(iid=iid, status="duplicate", collection=target_collection)
+    # Global dedup: prevent the same iid existing in multiple tier collections.
+    existing_collection = store.find_record_collection(
+        iid, collections=ALL_TIER_COLLECTIONS
+    )
+    if existing_collection:
+        return IngestResult(iid=iid, status="duplicate", collection=existing_collection)
 
     # Generate embedding from text (text itself is NOT stored in Milvus)
     normalized = " ".join(text.split()).strip()

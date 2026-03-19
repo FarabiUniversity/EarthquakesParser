@@ -152,26 +152,24 @@ def demo_combined_analysis():
 
     vectors = [
         {
-            "id": "news_1",
-            "content": "Землетрясение в Турции магнитудой 7.8 баллов.",
-            "source_url": "http://news1.com/earthquake",
+            "iid": "news_1",
+            "main_text": "Землетрясение в Турции магнитудой 7.8 баллов.",
+            "date": 0,
+            "domain": "news1.com",
             "credibility_score": 0.8,
-            "ingested_timestamp": 1000,
-            "supabase_id": "s1",
             "embedding": vec1_emb.tolist(),
         },
         {
-            "id": "news_2",
-            "content": "Турция 7.8.",  # Короткий
-            "source_url": "http://news2.com/quake",
+            "iid": "news_2",
+            "main_text": "Турция 7.8.",  # Короткий
+            "date": 0,
+            "domain": "news2.com",
             "credibility_score": 0.7,
-            "ingested_timestamp": 2000,
-            "supabase_id": "s2",
             "embedding": vec2_emb.tolist(),
         },
         {
-            "id": "news_3",
-            "content": (
+            "iid": "news_3",
+            "main_text": (
                 "Разрушительное землетрясение магнитудой 7.8 по шкале Рихтера произошло в Турции "  # noqa: E501
                 "в понедельник утром по местному времени. Эпицентр находился в провинции Газиантеп. "  # noqa: E501
                 "Подземные толчки ощущались также в соседних странах включая Сирию, Ливан и Кипр. "  # noqa: E501
@@ -179,19 +177,17 @@ def demo_combined_analysis():
                 "работают круглосуточно, извлекая людей из-под завалов. По предварительным данным "  # noqa: E501
                 "погибли сотни человек, тысячи получили ранения."
             ),  # Очень длинный и детальный
-            "source_url": "http://news3.com/detailed",
+            "date": 0,
+            "domain": "news3.com",
             "credibility_score": 0.9,
-            "ingested_timestamp": 3000,
-            "supabase_id": "s3",
             "embedding": vec3_emb.tolist(),
         },
         {
-            "id": "weather_1",
-            "content": "Погода в Анкаре: солнечно, 15 градусов.",  # Несвязанная тема
-            "source_url": "http://weather.com/ankara",
+            "iid": "weather_1",
+            "main_text": "Погода в Анкаре: солнечно, 15 градусов.",  # Несвязанная тема
+            "date": 0,
+            "domain": "weather.com",
             "credibility_score": 0.5,
-            "ingested_timestamp": 4000,
-            "supabase_id": "s4",
             "embedding": vec4_emb.tolist(),
         },
     ]
@@ -215,15 +211,15 @@ def demo_combined_analysis():
     print("\n📊 Результаты анализа:\n")
     for i, vec in enumerate(all_ranked, 1):
         marker = "🏆" if i == 1 else f"{i}."
-        print(f"{marker} {vec.id}")
+        print(f"{marker} {vec.iid}")
         print(f"    Центральность: {vec.centrality_score:.3f}")
         print(f"    Детальность:   {vec.detail_score:.3f}")
         print(f"    Общий балл:    {vec.combined_score:.3f}")
-        print(f"    Длина текста:  {vec.content_length} символов")
+        print(f"    Длина текста:  {vec.main_text_length} символов")
         print()
 
-    print(f"✅ Лучший вектор: {best.id}")
-    reason = "центральный и подробный" if best.id == "news_3" else "баланс факторов"
+    print(f"✅ Лучший вектор: {best.iid}")
+    reason = "центральный и подробный" if best.iid == "news_3" else "баланс факторов"
     print(f"   Причина: {reason}")
 
     # Попробуем с акцентом на центральность
@@ -237,7 +233,7 @@ def demo_combined_analysis():
         detail_weight=0.1,
     )
 
-    print(f"\n✅ Лучший (центральность): {best_cent.id}")
+    print(f"\n✅ Лучший (центральность): {best_cent.iid}")
 
     # Попробуем с акцентом на детальность
     print("\n" + "-" * 80)
@@ -250,7 +246,7 @@ def demo_combined_analysis():
         detail_weight=0.8,
     )
 
-    print(f"\n✅ Лучший (детальность): {best_detail.id}")
+    print(f"\n✅ Лучший (детальность): {best_detail.iid}")
 
 
 def main():
@@ -281,7 +277,7 @@ best, all_ranked = find_most_relevant_vector(
     detail_weight=0.4,
 )
 
-print(f"Лучший: {best.id}, score: {best.combined_score:.3f}")
+print(f"Лучший: {best.iid}, score: {best.combined_score:.3f}")
         """
         )
 

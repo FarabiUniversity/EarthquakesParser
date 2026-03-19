@@ -217,30 +217,27 @@ class TestFindBestVectorWithEmbeddings:
         # Create test vectors with embeddings
         vectors = [
             {
-                "id": "v1",
-                "content": "Short text",  # Low detail
-                "source_url": "http://example.com/1",
+                "iid": "v1",
+                "main_text": "Short text",  # Low detail
                 "credibility_score": 0.8,
-                "ingested_timestamp": 1000,
-                "supabase_id": "s1",
+                "date": 0,
+                "domain": "",
                 "embedding": [1.0, 0.0, 0.0] + [0.0] * 381,  # 384-dim
             },
             {
-                "id": "v2",
-                "content": "Medium length content with more information",  # noqa: E501
-                "source_url": "http://example.com/2",
+                "iid": "v2",
+                "main_text": "Medium length content with more information",  # noqa: E501
                 "credibility_score": 0.7,
-                "ingested_timestamp": 2000,
-                "supabase_id": "s2",
+                "date": 0,
+                "domain": "",
                 "embedding": [0.8, 0.6, 0.0] + [0.0] * 381,  # Similar to v1
             },
             {
-                "id": "v3",
-                "content": "This is a very detailed and comprehensive text with extensive information covering many aspects",  # noqa: E501
-                "source_url": "http://example.com/3",
+                "iid": "v3",
+                "main_text": "This is a very detailed and comprehensive text with extensive information covering many aspects",  # noqa: E501
                 "credibility_score": 0.9,
-                "ingested_timestamp": 3000,
-                "supabase_id": "s3",
+                "date": 0,
+                "domain": "",
                 "embedding": [0.0, 1.0, 0.0] + [0.0] * 381,  # Orthogonal to v1
             },
         ]
@@ -271,28 +268,31 @@ class TestFindBestVectorWithEmbeddings:
             assert all_ranked[i].combined_score >= all_ranked[i + 1].combined_score
 
         # Best should be first in ranked list
-        assert best.id == all_ranked[0].id
+        assert best.iid == all_ranked[0].iid
 
     def test_centrality_weighted(self):
         """Test with high centrality weight."""
         # v2 is central to v1 and v3
         vectors = [
             {
-                "id": "v1",
-                "content": "Long detailed text",  # High detail
-                "source_url": "http://example.com/1",
+                "iid": "v1",
+                "main_text": "Long detailed text",  # High detail
+                "date": 0,
+                "domain": "",
                 "embedding": [1.0, 0.0, 0.0] + [0.0] * 381,
             },
             {
-                "id": "v2",
-                "content": "Short",  # Low detail but central
-                "source_url": "http://example.com/2",
+                "iid": "v2",
+                "main_text": "Short",  # Low detail but central
+                "date": 0,
+                "domain": "",
                 "embedding": [0.7071, 0.7071, 0.0] + [0.0] * 381,  # Between v1 and v3
             },
             {
-                "id": "v3",
-                "content": "Another long text",  # High detail
-                "source_url": "http://example.com/3",
+                "iid": "v3",
+                "main_text": "Another long text",  # High detail
+                "date": 0,
+                "domain": "",
                 "embedding": [0.0, 1.0, 0.0] + [0.0] * 381,
             },
         ]
@@ -310,27 +310,30 @@ class TestFindBestVectorWithEmbeddings:
         )
 
         # v2 should win due to high centrality despite low detail
-        assert best.id == "v2"
+        assert best.iid == "v2"
 
     def test_detail_weighted(self):
         """Test with high detail weight."""
         vectors = [
             {
-                "id": "v1",
-                "content": "x" * 1000,  # Very long
-                "source_url": "http://example.com/1",
+                "iid": "v1",
+                "main_text": "x" * 1000,  # Very long
+                "date": 0,
+                "domain": "",
                 "embedding": [1.0, 0.0, 0.0] + [0.0] * 381,  # Isolated
             },
             {
-                "id": "v2",
-                "content": "Short",  # Short but central
-                "source_url": "http://example.com/2",
+                "iid": "v2",
+                "main_text": "Short",  # Short but central
+                "date": 0,
+                "domain": "",
                 "embedding": [0.5, 0.5, 0.0] + [0.0] * 381,
             },
             {
-                "id": "v3",
-                "content": "Medium",
-                "source_url": "http://example.com/3",
+                "iid": "v3",
+                "main_text": "Medium",
+                "date": 0,
+                "domain": "",
                 "embedding": [0.0, 1.0, 0.0] + [0.0] * 381,
             },
         ]
@@ -348,22 +351,23 @@ class TestFindBestVectorWithEmbeddings:
         )
 
         # v1 should win due to length despite low centrality
-        assert best.id == "v1"
+        assert best.iid == "v1"
 
     def test_single_vector(self):
         """Test with single vector."""
         vectors = [
             {
-                "id": "v1",
-                "content": "Only vector",
-                "source_url": "http://example.com/1",
+                "iid": "v1",
+                "main_text": "Only vector",
+                "date": 0,
+                "domain": "",
                 "embedding": [1.0] + [0.0] * 383,
             }
         ]
 
         best, all_ranked = find_best_vector_with_embeddings(vectors)
 
-        assert best.id == "v1"
+        assert best.iid == "v1"
         assert best.centrality_score == 1.0
         assert best.detail_score == 1.0
         assert best.combined_score == 1.0
@@ -373,9 +377,10 @@ class TestFindBestVectorWithEmbeddings:
         """Test that invalid weights raise error."""
         vectors = [
             {
-                "id": "v1",
-                "content": "Test",
-                "source_url": "http://example.com/1",
+                "iid": "v1",
+                "main_text": "Test",
+                "date": 0,
+                "domain": "",
                 "embedding": [1.0] + [0.0] * 383,
             }
         ]
@@ -393,108 +398,64 @@ class TestFindBestVectorWithEmbeddings:
         with pytest.raises(ValueError, match="Empty vector list"):
             find_best_vector_with_embeddings([])
 
-
-@pytest.mark.integration
-class TestIntegrationWithMilvus:
-    """Integration tests with real Milvus collection."""
-
-    def test_find_best_from_test_collection(
-        self, milvus_connection, test_collection, record_store
-    ):
-        """Test finding best vector from a test collection."""
+    def test_unrelated_vector_ranks_last(self):
+        """An unrelated short vector should rank last."""
         from veritatis.embeddings import embedding_generator
 
-        # Insert multiple test records with different characteristics
-        test_records = [
+        vectors = [
             {
-                "id": "consensus_1",
-                "content": "Earthquake in Turkey magnitude 7.8",  # Short, central topic
-                "source_url": "http://news1.com",
+                "iid": "consensus_1",
+                "main_text": "Earthquake in Turkey magnitude 7.8",
                 "credibility_score": 0.8,
-                "ingested_timestamp": 1000,
-                "supabase_id": "s1",
+                "date": 0,
+                "domain": "news1.com",
                 "embedding": embedding_generator.embed(
                     "Earthquake in Turkey magnitude 7.8"
                 ),
             },
             {
-                "id": "consensus_2",
-                "content": "Turkey earthquake 7.8 richter scale causes destruction",  # noqa: E501
-                "source_url": "http://news2.com",
+                "iid": "consensus_2",
+                "main_text": "Turkey earthquake 7.8 richter scale causes destruction",
                 "credibility_score": 0.7,
-                "ingested_timestamp": 2000,
-                "supabase_id": "s2",
+                "date": 0,
+                "domain": "news2.com",
                 "embedding": embedding_generator.embed(
                     "Turkey earthquake 7.8 richter scale causes destruction"
                 ),
             },
             {
-                "id": "consensus_3",
-                "content": (
-                    "Comprehensive report: A devastating earthquake measuring 7.8 on the Richter scale "  # noqa: E501
-                    "struck Turkey on Monday, causing widespread destruction across multiple provinces. "  # noqa: E501
-                    "Thousands of buildings collapsed, and rescue teams are working around the clock to "  # noqa: E501
-                    "find survivors. The earthquake was felt in neighboring countries including Syria."  # noqa: E501
-                ),  # Long, detailed, central topic
-                "source_url": "http://news3.com",
-                "credibility_score": 0.9,
-                "ingested_timestamp": 3000,
-                "supabase_id": "s3",
-                "embedding": embedding_generator.embed(
+                "iid": "consensus_3",
+                "main_text": (
                     "Comprehensive report: A devastating earthquake measuring 7.8 on the Richter scale "  # noqa: E501
                     "struck Turkey on Monday, causing widespread destruction across multiple provinces. "  # noqa: E501
                     "Thousands of buildings collapsed, and rescue teams are working around the clock to "  # noqa: E501
                     "find survivors. The earthquake was felt in neighboring countries including Syria."  # noqa: E501
                 ),
+                "credibility_score": 0.9,
+                "date": 0,
+                "domain": "news3.com",
+                "embedding": embedding_generator.embed(
+                    "Turkey earthquake comprehensive report"
+                ),
             },
             {
-                "id": "consensus_4",
-                "content": "Weather update: Sunny skies expected tomorrow",  # noqa: E501
-                "source_url": "http://weather.com",
+                "iid": "consensus_4",
+                "main_text": "Weather update: Sunny skies expected tomorrow",
                 "credibility_score": 0.5,
-                "ingested_timestamp": 4000,
-                "supabase_id": "s4",
+                "date": 0,
+                "domain": "weather.com",
                 "embedding": embedding_generator.embed(
                     "Weather update: Sunny skies expected tomorrow"
                 ),
             },
         ]
 
-        # Insert records
-        record_store.insert_record(test_collection, test_records)
-
-        # Wait for indexing
-        import time
-
-        time.sleep(1)
-
-        # Now test find_best_vector_with_embeddings with these vectors
-        from veritatis.vector_consensus import find_best_vector_with_embeddings
-
-        vectors_for_analysis = test_records  # Already have embeddings
-
         best, all_ranked = find_best_vector_with_embeddings(
-            vectors_for_analysis,
+            vectors,
             centrality_weight=0.6,
             detail_weight=0.4,
         )
 
-        # Verify results
-        assert best.id in ["consensus_1", "consensus_2", "consensus_3"]
-
-        # consensus_3 should likely win (detailed + central to earthquake topic)
-        # or consensus_1/2 if centrality dominates
+        assert best.iid in ["consensus_1", "consensus_2", "consensus_3"]
         assert len(all_ranked) == 4
-
-        # Weather vector should be last (unrelated, short)
-        assert all_ranked[-1].id == "consensus_4"
-
-        # Log results for verification
-        print("\n=== Vector Consensus Results ===")
-        for i, analysis in enumerate(all_ranked):
-            print(f"\n{i+1}. {analysis.id}")
-            print(f"   Content: {analysis.content[:60]}...")
-            print(f"   Centrality: {analysis.centrality_score:.3f}")
-            print(f"   Detail: {analysis.detail_score:.3f}")
-            print(f"   Combined: {analysis.combined_score:.3f}")
-            print(f"   Length: {analysis.content_length}")
+        assert all_ranked[-1].iid == "consensus_4"

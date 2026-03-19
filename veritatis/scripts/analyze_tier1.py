@@ -48,6 +48,7 @@ def analyze_tier1(
     limit=None,
     centrality_weight=0.6,
     detail_weight=0.4,
+    credibility_weight=0.0,
     top_n=10,
     move_to_tier2=False,
     threshold=0.7,
@@ -59,6 +60,7 @@ def analyze_tier1(
         limit: Максимум векторов для анализа (None = все)
         centrality_weight: Вес центральности (0-1)
         detail_weight: Вес детальности (0-1)
+        credibility_weight: Вес достоверности источника (0-1)
         top_n: Сколько топ результатов показать
         move_to_tier2: Перемещать ли лучшие в Tier 2
         threshold: Минимальный score для перемещения в Tier 2
@@ -80,6 +82,7 @@ def analyze_tier1(
     print("🧮 Параметры анализа:")
     print(f"   Центральность: {centrality_weight:.1%}")
     print(f"   Детальность: {detail_weight:.1%}")
+    print(f"   Достоверность: {credibility_weight:.1%}")
     print(f"   Лимит векторов: {limit if limit else 'все'}")
     print()
 
@@ -92,6 +95,7 @@ def analyze_tier1(
             collection_name="veritatis_tier1_lake",
             centrality_weight=centrality_weight,
             detail_weight=detail_weight,
+            credibility_weight=credibility_weight,
             limit=limit,
         )
     except ValueError as e:
@@ -110,20 +114,22 @@ def analyze_tier1(
     print(f"✅ Анализ завершён! Проанализировано векторов: {len(all_ranked)}\n")
 
     print_header("🏆 ЛУЧШИЙ ВЕКТОР")
-    print(f"ID: {best.id}")
-    print(f"Source: {best.source_url}")
+    print(f"IID: {best.iid}")
+    if best.domain:
+        print(f"Domain: {best.domain}")
+    if best.date:
+        print(f"Date (epoch ms): {best.date}")
     print("\n📊 Оценки:")
     print(f"   Центральность: {best.centrality_score:.3f} (схожесть с другими)")
     print(f"   Детальность:   {best.detail_score:.3f} (относительная длина)")
     print(f"   Общий балл:    {best.combined_score:.3f}")
     print("\n📝 Детали:")
-    print(f"   Длина текста: {best.content_length} символов")
+    print(f"   Длина текста: {best.main_text_length} символов")
     print(f"   Credibility: {best.credibility_score:.2f}")
-    print(f"   Timestamp: {best.ingested_timestamp}")
     print("\n📄 Содержание:")
     # Показать первые 300 символов
-    content_preview = best.content[:300]
-    if len(best.content) > 300:
+    content_preview = best.main_text[:300]
+    if len(best.main_text) > 300:
         content_preview += "..."
     print(f"   {content_preview}")
     print()
@@ -132,18 +138,19 @@ def analyze_tier1(
     print_header(f"📋 ТОП-{min(top_n, len(all_ranked))} ВЕКТОРОВ")
     for i, vec in enumerate(all_ranked[:top_n], 1):
         marker = "🏆" if i == 1 else f"{i}."
-        print(f"{marker} {vec.id}")
+        print(f"{marker} {vec.iid}")
         print(
             f"    Балл: {vec.combined_score:.3f} "
             f"(центр: {vec.centrality_score:.3f}, "
             f"детал: {vec.detail_score:.3f})"
         )
-        print(f"    Длина: {vec.content_length} символов")
-        print(f"    Source: {vec.source_url}")
+        print(f"    Длина: {vec.main_text_length} символов")
+        if vec.domain:
+            print(f"    Domain: {vec.domain}")
 
         # Короткий превью текста
-        preview = vec.content[:100].replace("\n", " ")
-        if len(vec.content) > 100:
+        preview = vec.main_text[:100].replace("\n", " ")
+        if len(vec.main_text) > 100:
             preview += "..."
         print(f"    Текст: {preview}")
         print()
@@ -153,7 +160,7 @@ def analyze_tier1(
     scores = [v.combined_score for v in all_ranked]
     centralities = [v.centrality_score for v in all_ranked]
     details = [v.detail_score for v in all_ranked]
-    lengths = [v.content_length for v in all_ranked]
+    lengths = [v.main_text_length for v in all_ranked]
 
     print("Общий балл:")
     print(f"   Среднее: {sum(scores) / len(scores):.3f}")
@@ -181,7 +188,7 @@ def analyze_tier1(
         source_collection = collection_for_tier(1)
         target_collection = collection_for_tier(2)
 
-        ids_to_move = [v.id for v in all_ranked if v.combined_score >= threshold]
+        ids_to_move = [v.iid for v in all_ranked if v.combined_score >= threshold]
         skipped_count = len(all_ranked) - len(ids_to_move)
 
         if not ids_to_move:
@@ -260,6 +267,13 @@ def main():
     )
 
     parser.add_argument(
+        "--credibility-weight",
+        type=float,
+        default=0.0,
+        help="Вес достоверности источника 0-1 (по умолчанию: 0.0)",
+    )
+
+    parser.add_argument(
         "--top-n",
         type=int,
         default=10,
@@ -290,7 +304,14 @@ def main():
         print("❌ Ошибка: detail-weight должен быть между 0 и 1")
         return 1
 
-    if abs(args.centrality_weight + args.detail_weight - 1.0) > 1e-6:
+    if not (0 <= args.credibility_weight <= 1):
+        print("❌ Ошибка: credibility-weight должен быть между 0 и 1")
+        return 1
+
+    if (
+        abs(args.centrality_weight + args.detail_weight + args.credibility_weight - 1.0)
+        > 1e-6
+    ):
         print("❌ Ошибка: сумма весов должна быть равна 1.0")
         return 1
 
@@ -298,6 +319,7 @@ def main():
         limit=args.limit,
         centrality_weight=args.centrality_weight,
         detail_weight=args.detail_weight,
+        credibility_weight=args.credibility_weight,
         top_n=args.top_n,
         move_to_tier2=args.move_to_tier2,
         threshold=args.threshold,

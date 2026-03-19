@@ -71,8 +71,8 @@ detail_score = (raw − min_raw) / (max_raw − min_raw)
 
 ### Шаги вычисления
 
-1. Загрузить все записи из коллекции Milvus; попытаться получить эмбеддинги напрямую
-2. Если Milvus не вернул эмбеддинги — перегенерировать из поля `content` через `all-MiniLM-L6-v2`
+1. Загрузить записи из коллекции Milvus (получаем эмбеддинги и скалярные поля)
+2. По списку `iid` запросить в Supabase таблицу `parsed_content` и получить `main_text`
 3. Построить матрицу NxN косинусных сходств через numpy dot-product (векторизовано)
 4. Для каждого вектора: `centrality = (сумма строки − 1) / (N − 1)`
 5. Для каждого вектора: `detail_score` по формуле выше
@@ -90,13 +90,14 @@ detail_score = (raw − min_raw) / (max_raw − min_raw)
 @dataclass
 class VectorAnalysis:
     # Поля из Milvus
-    id: str
-    content: str
-    source_url: str
-    credibility_score: float
-    ingested_timestamp: int
-    supabase_id: str
+    iid: str
     embedding: List[float]
+    credibility_score: float
+    date: int
+    domain: str
+
+    # Поля из Supabase
+    main_text: str
 
     # Вычисленные оценки
     centrality_score: float          # Среднее сходство с остальными (0.0–1.0)
@@ -105,7 +106,7 @@ class VectorAnalysis:
 
     # Метаданные
     avg_similarity_to_others: float  # То же, что centrality_score
-    content_length: int              # Длина контента в символах
+    main_text_length: int           # Длина main_text в символах
 ```
 
 ---
@@ -156,13 +157,13 @@ find_best_vector_with_embeddings(
 ```
 
 Каждый элемент `vectors_with_embeddings` должен содержать ключи:
-`id`, `content`, `source_url`, `credibility_score`, `ingested_timestamp`, `supabase_id`, `embedding`.
+`iid`, `main_text`, `credibility_score`, `date`, `domain`, `embedding`.
 
 ---
 
 ### `fetch_all_vectors()`
 
-Загружает записи из Milvus и перегенерирует эмбеддинги.
+Загружает записи из Milvus.
 
 ```python
 fetch_all_vectors(
@@ -172,7 +173,7 @@ fetch_all_vectors(
 ) -> List[Dict[str, Any]]
 ```
 
-> **Примечание:** Функция запрашивает поле `embedding` из Milvus. Если Milvus его не вернул (поведение зависит от версии), эмбеддинги автоматически перегенерируются из поля `content` через ту же модель — результаты остаются консистентны.
+> **Примечание:** В Veritatis текст не хранится в Milvus. Для `detail_score` используется `parsed_content.main_text` из Supabase.
 
 ---
 
@@ -194,7 +195,7 @@ calculate_centrality_scores(similarity_matrix: np.ndarray) -> List[float]
 Для каждой строки матрицы вычисляет среднее по всем столбцам, исключая диагональ (self-similarity).
 
 ```python
-calculate_detail_scores(contents: List[str]) -> List[float]
+calculate_detail_scores(texts: List[str]) -> List[float]
 ```
 Min-max нормализация длин текстов в диапазон `[0.0, 1.0]`. Если все тексты одинаковой длины — возвращает `1.0` для всех.
 
@@ -209,11 +210,11 @@ from veritatis.vector_consensus import find_most_relevant_vector
 
 best, all_ranked = find_most_relevant_vector("veritatis_tier1_lake")
 
-print(f"Лучший вектор: {best.id}")
+print(f"Лучший вектор: {best.iid}")
 print(f"  combined_score: {best.combined_score:.3f}")
 print(f"  centrality:     {best.centrality_score:.3f}")
 print(f"  detail:         {best.detail_score:.3f}")
-print(f"  контент: {best.content[:200]}...")
+print(f"  main_text: {best.main_text[:200]}...")
 ```
 
 ### Акцент на консенсусе (центральности)
@@ -256,12 +257,11 @@ from veritatis.vector_consensus import find_best_vector_with_embeddings
 
 vectors = [
     {
-        "id": "vec_001",
-        "content": "Землетрясение магнитудой 6.2 произошло в регионе...",
-        "source_url": "https://example.com/news/1",
+        "iid": "vec_001",
+        "main_text": "Землетрясение магнитудой 6.2 произошло в регионе...",
         "credibility_score": 0.85,
-        "ingested_timestamp": 1700000000,
-        "supabase_id": "uuid-001",
+        "date": 0,
+        "domain": "example.com",
         "embedding": [0.1, 0.2, ...],  # 384-мерный вектор
     },
     # ...
@@ -287,7 +287,7 @@ best, all_ranked = find_most_relevant_vector("veritatis_tier1_lake")
 
 print("Топ-5 векторов:")
 for i, v in enumerate(all_ranked[:5], 1):
-    print(f"  {i}. {v.id}  score={v.combined_score:.3f}  len={v.content_length}")
+    print(f"  {i}. {v.iid}  score={v.combined_score:.3f}  len={v.main_text_length}")
 ```
 
 ---
@@ -371,18 +371,19 @@ Content-Type: application/json
 {
     "analyzed_count": 50,
     "best_vector": {
-        "id": "abc123",
-        "content": "Землетрясение магнитудой 7.8...",
-        "source_url": "https://news.example.com/1",
+        "iid": "abc123",
+        "main_text": "Землетрясение магнитудой 7.8...",
         "credibility_score": 0.85,
+        "date": 0,
+        "domain": "news.example.com",
         "centrality_score": 0.823,
         "detail_score": 0.756,
         "combined_score": 0.796,
-        "content_length": 1234
+        "main_text_length": 1234
     },
     "moved_to_tier2": true,
     "top_n": [
-        {"rank": 1, "id": "abc123", "combined_score": 0.796, ...},
+        {"rank": 1, "iid": "abc123", "combined_score": 0.796, ...},
         ...
     ],
     "stats": {
@@ -427,6 +428,9 @@ python scripts/analyze_tier1.py --centrality-weight 0.2 --detail-weight 0.8
 # 6. Переместить лучшие в Tier 2
 python scripts/analyze_tier1.py --move-to-tier2 --threshold 0.7
 
+# 6b. Добавить вес достоверности источника
+python scripts/analyze_tier1.py --centrality-weight 0.55 --detail-weight 0.25 --credibility-weight 0.20
+
 # 7. Показать топ-20
 python scripts/analyze_tier1.py --top-n 20
 ```
@@ -438,11 +442,12 @@ python scripts/analyze_tier1.py --top-n 20
 | `--limit N` | Анализировать первые N векторов | Все |
 | `--centrality-weight W` | Вес центральности (0–1) | 0.6 |
 | `--detail-weight W` | Вес детальности (0–1) | 0.4 |
+| `--credibility-weight W` | Вес достоверности источника (0–1) | 0.0 |
 | `--top-n N` | Показать топ-N результатов | 10 |
 | `--move-to-tier2` | Переместить лучшие в Tier 2 | false |
 | `--threshold T` | Порог для перемещения (0–1) | 0.7 |
 
-**Важно:** `centrality-weight + detail-weight` должны в сумме давать 1.0.
+**Важно:** `centrality-weight + detail-weight + credibility-weight` должны в сумме давать 1.0.
 
 ### Типичные сценарии
 

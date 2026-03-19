@@ -1,14 +1,26 @@
-"""
-Vector consensus analysis for veritatis.
+"""Vector consensus analysis for Veritatis.
+
+Milvus collections in Veritatis store only:
+- ``iid`` (primary key; maps to ``parsed_content.id`` in Supabase)
+- ``embedding``
+- ``credibility_score``
+- ``date``
+- ``domain``
 
 This module finds the most relevant/detailed vector from a set of vectors
 by comparing them against each other (without a query). It combines:
 - Centrality score: how close a vector is to all others (consensus)
 - Detail score: combined length + lexical diversity metric
 - Credibility score: source credibility (optional, default weight 0.0)
+
+For the detail score, this module optionally fetches ``parsed_content.main_text``
+from Supabase using ``iid`` as the row id.
 """
 
+import importlib
+import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -24,12 +36,11 @@ logger = logging.getLogger(__name__)
 class VectorAnalysis:
     """Analysis result for a single vector."""
 
-    id: str
-    content: str
-    source_url: str
+    iid: str
+    main_text: str
     credibility_score: float
-    ingested_timestamp: int
-    supabase_id: str
+    date: int
+    domain: str
     embedding: List[float]
 
     # Computed scores
@@ -39,7 +50,129 @@ class VectorAnalysis:
 
     # Metadata
     avg_similarity_to_others: float
-    content_length: int
+    main_text_length: int
+
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+
+if load_dotenv is not None:
+    load_dotenv()
+
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+_SUPABASE_CLIENT: Any = None
+
+
+def _get_supabase_client():
+    """Return a cached Supabase client.
+
+    Prefers reusing the shared connector from ``earthquakes_parser`` when importable.
+    Falls back to ``supabase.create_client`` when available.
+    """
+    global _SUPABASE_CLIENT
+    if _SUPABASE_CLIENT is not None:
+        return _SUPABASE_CLIENT
+
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise RuntimeError(
+            "Missing SUPABASE_URL and Supabase key "
+            "(SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY)"
+        )
+
+    try:
+        from earthquakes_parser.storage.supabase import SupabaseDB
+
+        _SUPABASE_CLIENT = SupabaseDB(url=SUPABASE_URL, key=SUPABASE_KEY).client
+        return _SUPABASE_CLIENT
+    except Exception:
+        supabase_mod = importlib.import_module("supabase")
+        _SUPABASE_CLIENT = supabase_mod.create_client(SUPABASE_URL, SUPABASE_KEY)
+        return _SUPABASE_CLIENT
+
+
+def _normalize_main_text(value: Any) -> str:
+    """Convert Supabase main_text into a plain string suitable for scoring."""
+    if value is None:
+        return ""
+
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return ""
+        if (s.startswith("[") and s.endswith("]")) or (
+            s.startswith("{") and s.endswith("}")
+        ):
+            try:
+                decoded = json.loads(s)
+                return _normalize_main_text(decoded)
+            except Exception:
+                return s
+        return s
+
+    if isinstance(value, list):
+        parts: List[str] = []
+        for item in value:
+            item_s = _normalize_main_text(item)
+            if item_s:
+                parts.append(item_s)
+        return "\n".join(parts)
+
+    if isinstance(value, dict):
+        for key in ("main_text", "text", "content"):
+            if key in value:
+                return _normalize_main_text(value.get(key))
+        try:
+            return json.dumps(value, ensure_ascii=False)
+        except Exception:
+            return str(value)
+
+    return str(value)
+
+
+def _fetch_supabase_main_text_by_iids(iids: List[str]) -> Dict[str, str]:
+    """Fetch ``parsed_content.main_text`` for a list of Supabase UUIDs."""
+    if not iids:
+        return {}
+
+    # If Supabase isn't configured, just return empty content.
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        logger.warning(
+            "SUPABASE_URL/SUPABASE_KEY not set; detail score will use empty text"
+        )
+        return {}
+
+    client = _get_supabase_client()
+    out: Dict[str, str] = {}
+
+    # PostgREST has practical limits for `in_` lists; chunk defensively.
+    chunk_size = 200
+    for i in range(0, len(iids), chunk_size):
+        chunk = iids[i : i + chunk_size]
+        try:
+            resp = (
+                client.table("parsed_content")
+                .select("id, main_text")
+                .in_("id", chunk)
+                .execute()
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to fetch parsed_content.main_text: {e}") from e
+
+        rows = getattr(resp, "data", None) or []
+        for row in rows:
+            try:
+                rid = str(row.get("id", ""))
+            except Exception:
+                continue
+            if not rid:
+                continue
+            out[rid] = _normalize_main_text(row.get("main_text"))
+    return out
 
 
 def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
@@ -154,9 +287,7 @@ def fetch_all_vectors(
     Fetch all vectors from a Milvus collection.
 
     Attempts to retrieve the embedding field directly from Milvus via
-    ``output_fields``. If Milvus does not return embeddings (behaviour varies
-    across versions), falls back to regenerating them from the ``content`` field
-    using the same embedding model so results remain consistent.
+    ``output_fields``.
 
     Args:
         collection_name: Name of the collection
@@ -179,18 +310,16 @@ def fetch_all_vectors(
     if limit is None:
         limit = num_entities
 
-    expr = "id != ''"  # Match all records
+    expr = "iid != ''"  # Match all records
 
     results = collection.query(
         expr=expr,
         output_fields=[
-            "id",
-            "content",
-            "source_url",
-            "credibility_score",
-            "ingested_timestamp",
-            "supabase_id",
+            "iid",
             "embedding",
+            "credibility_score",
+            "date",
+            "domain",
         ],
         limit=limit,
         offset=offset,
@@ -203,45 +332,23 @@ def fetch_all_vectors(
         logger.info(f"Fetched {len(results)} records with embeddings from Milvus")
         return [
             {
-                "id": record["id"],
-                "content": record.get("content", ""),
-                "source_url": record.get("source_url", ""),
-                "credibility_score": float(record.get("credibility_score", 0.0)),
-                "ingested_timestamp": int(record.get("ingested_timestamp", 0)),
-                "supabase_id": record.get("supabase_id", ""),
+                "iid": str(record.get("iid") or ""),
                 "embedding": record["embedding"],
+                "credibility_score": float(record.get("credibility_score", 0.0)),
+                "date": int(record.get("date", 0)),
+                "domain": str(record.get("domain") or ""),
             }
             for record in results
+            if record.get("iid")
         ]
 
-    # Fall back: regenerate embeddings from content
-    logger.info(
-        f"Fetched {len(results)} records; Milvus did not return embeddings — "
-        "regenerating from content..."
+    logger.error(
+        "Milvus query did not return embeddings for collection '%s'. ",
+        collection_name,
     )
-
-    from veritatis.embeddings import embedding_generator
-
-    contents = [record.get("content", "") for record in results]
-    embeddings = embedding_generator.embed_batch(contents) if contents else []
-
-    records_with_embeddings = [
-        {
-            "id": record["id"],
-            "content": record.get("content", ""),
-            "source_url": record.get("source_url", ""),
-            "credibility_score": float(record.get("credibility_score", 0.0)),
-            "ingested_timestamp": int(record.get("ingested_timestamp", 0)),
-            "supabase_id": record.get("supabase_id", ""),
-            "embedding": embedding,
-        }
-        for record, embedding in zip(results, embeddings)
-    ]
-
-    logger.info(
-        f"Successfully fetched {len(records_with_embeddings)} vectors with embeddings"
+    raise RuntimeError(
+        f"Milvus did not return embeddings for collection '{collection_name}'."
     )
-    return records_with_embeddings
 
 
 def find_most_relevant_vector(
@@ -296,11 +403,17 @@ def find_most_relevant_vector(
         abs(centrality_weight + detail_weight + credibility_weight - 1.0) < 1e-6
     ), "Weights must sum to 1.0"
 
-    # Fetch all vectors with embeddings
+    # Fetch all vectors with embeddings from Milvus, then fetch main_text from Supabase.
     records = fetch_all_vectors(collection_name, limit=limit, offset=offset)
 
     if not records:
         raise ValueError(f"No vectors found in collection '{collection_name}'")
+
+    iids = [str(r.get("iid", "")) for r in records if r.get("iid")]
+    main_text_map = _fetch_supabase_main_text_by_iids(iids)
+    for r in records:
+        rid = str(r.get("iid", ""))
+        r["main_text"] = main_text_map.get(rid, "")
 
     # Use the helper function for the analysis
     return find_best_vector_with_embeddings(
@@ -324,8 +437,7 @@ def find_best_vector_with_embeddings(
 
     Args:
         vectors_with_embeddings: List of dicts with fields:
-            - id, content, source_url, credibility_score,
-              ingested_timestamp, supabase_id, embedding
+                        - iid, main_text, credibility_score, date, domain, embedding
         centrality_weight: Weight for centrality score (default: 0.6)
         detail_weight: Weight for detail score (default: 0.4)
         credibility_weight: Weight for credibility score (default: 0.0)
@@ -343,25 +455,25 @@ def find_best_vector_with_embeddings(
 
     if len(vectors_with_embeddings) == 1:
         record = vectors_with_embeddings[0]
+        text = str(record.get("main_text") or "")
         analysis = VectorAnalysis(
-            id=record["id"],
-            content=record["content"],
-            source_url=record["source_url"],
-            credibility_score=record.get("credibility_score", 0.0),
-            ingested_timestamp=record.get("ingested_timestamp", 0),
-            supabase_id=record.get("supabase_id", ""),
+            iid=str(record.get("iid") or ""),
+            main_text=text,
+            credibility_score=float(record.get("credibility_score", 0.0)),
+            date=int(record.get("date", 0)),
+            domain=str(record.get("domain") or ""),
             embedding=record["embedding"],
             centrality_score=1.0,
             detail_score=1.0,
             combined_score=1.0,
             avg_similarity_to_others=1.0,
-            content_length=len(record["content"]),
+            main_text_length=len(text),
         )
         return analysis, [analysis]
 
     # Extract data
     embeddings = [np.array(r["embedding"]) for r in vectors_with_embeddings]
-    contents = [r["content"] for r in vectors_with_embeddings]
+    contents = [str(r.get("main_text") or "") for r in vectors_with_embeddings]
     credibility_scores = [
         float(r.get("credibility_score", 0.0)) for r in vectors_with_embeddings
     ]
@@ -383,19 +495,20 @@ def find_best_vector_with_embeddings(
     # Create analysis objects
     analyses = []
     for i, record in enumerate(vectors_with_embeddings):
+        iid = str(record.get("iid") or "")
+        text = str(record.get("main_text") or "")
         analysis = VectorAnalysis(
-            id=record["id"],
-            content=record["content"],
-            source_url=record["source_url"],
+            iid=iid,
+            main_text=text,
             credibility_score=credibility_scores[i],
-            ingested_timestamp=record.get("ingested_timestamp", 0),
-            supabase_id=record.get("supabase_id", ""),
+            date=int(record.get("date", 0)),
+            domain=str(record.get("domain") or ""),
             embedding=record["embedding"],
             centrality_score=centrality_scores[i],
             detail_score=detail_scores[i],
             combined_score=combined_scores[i],
             avg_similarity_to_others=centrality_scores[i],
-            content_length=len(contents[i]),
+            main_text_length=len(text),
         )
         analyses.append(analysis)
 
