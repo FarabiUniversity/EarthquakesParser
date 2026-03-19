@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -99,21 +99,6 @@ def test_insert_and_exists_and_get():
     assert store.record_exists(name, rid) is True
     fetched = store.get_record(name, rid)
     assert fetched["iid"] == rid and len(fetched["embedding"]) == EMBED_DIM
-
-    out = Path("artifacts") / "milvus_store_integration_results.json"
-    out.parent.mkdir(exist_ok=True)
-    out.write_text(
-        json.dumps(
-            {
-                "test": "insert_exists_get",
-                "collection": name,
-                "iid": rid,
-                "embedding_dim": len(fetched["embedding"]),
-                "timestamp": datetime.now(ALMATY_TZ).isoformat(),
-            },
-            indent=2,
-        )
-    )
 
 
 def test_insert_batch_and_move():
