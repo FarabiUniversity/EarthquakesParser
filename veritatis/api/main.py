@@ -6,9 +6,9 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
 from fastapi import Body, FastAPI, HTTPException, Request
-from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from pymilvus.orm import utility  # noqa: E402
 
 from veritatis.agent import FactCheckResult, fact_check
