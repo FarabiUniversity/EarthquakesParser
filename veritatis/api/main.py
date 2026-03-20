@@ -6,10 +6,12 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
 from fastapi import Body, FastAPI, HTTPException, Request
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymilvus.orm import utility  # noqa: E402
 
+from veritatis.agent import FactCheckResult, fact_check
 from veritatis.ingestion import IngestResult, ingest_record, set_store
 from veritatis.plain_search import vector_search
 from veritatis.search import RelevanceFilter, search_with_relevance_filter
@@ -265,6 +267,58 @@ async def search_strict(
     except Exception as e:
         logger.error(f"Strict search error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# Fact-check endpoint
+# ---------------------------------------------------------------------------
+
+
+class FactCheckRequest(BaseModel):
+    """Request body for POST /fact-check."""
+
+    claim: str
+
+
+class FactCheckResponse(BaseModel):
+    """Response body for POST /fact-check."""
+
+    claim: str
+    score: float
+    reasoning: str
+    sources: list[str]
+
+
+@app.post("/fact-check", response_model=FactCheckResponse)
+async def fact_check_endpoint(request: FactCheckRequest):
+    """Run the RAG fact-checker against the Tier 2 Milvus collection.
+
+    Accepts a natural-language ``claim``, retrieves relevant earthquake
+    records via vector similarity, and returns a truthfulness score (0-1)
+    with reasoning and source domains.
+
+    **Score interpretation**
+
+    | Range     | Meaning                                     |
+    |-----------|---------------------------------------------|
+    | 0.8 – 1.0 | Strongly supported by credible records      |
+    | 0.6 – 0.8 | Moderately supported                        |
+    | 0.4 – 0.6 | Uncertain — mixed signals or sparse data    |
+    | 0.2 – 0.4 | Weakly supported                            |
+    | 0.0 – 0.2 | Contradicted or entirely unsupported        |
+    """
+    try:
+        result: FactCheckResult = fact_check(request.claim)
+    except Exception as e:
+        logger.error("fact_check error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return FactCheckResponse(
+        claim=request.claim,
+        score=result.score,
+        reasoning=result.reasoning,
+        sources=result.sources,
+    )
 
 
 # --- Error handler example ---
