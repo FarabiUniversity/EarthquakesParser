@@ -18,7 +18,7 @@ import json
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, Optional
 
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
@@ -77,7 +77,7 @@ def query_collection(claim: str, top_k: int = 10) -> list[dict[str, Any]]:
 
 @tool
 def retrieve_facts(claim: str) -> list[dict]:
-    """Retrieve up to 10 relevant earthquake records from the credible (Tier 2) database.
+    """Retrieve up to 10 relevant earthquake records from the credible Tier 2 database.
 
     Returns a list of metadata dicts with fields:
         iid, credibility_score, date, domain, distance (COSINE similarity 0-1).
@@ -134,7 +134,7 @@ pre-training knowledge about earthquakes."""
 # LLM singleton
 # ---------------------------------------------------------------------------
 
-_llm: ChatOpenAI | None = None
+_llm: Optional[ChatOpenAI] = None
 
 
 def _get_llm() -> ChatOpenAI:
@@ -146,7 +146,9 @@ def _get_llm() -> ChatOpenAI:
             model=_MODEL,
             max_tokens=_MAX_TOKENS,
         )
-        logger.info("Fact-checker LLM initialised (model=%s, base_url=%s)", _MODEL, _BASE_URL)
+        logger.info(
+            "Fact-checker LLM initialised (model=%s, base_url=%s)", _MODEL, _BASE_URL
+        )
     return _llm
 
 
@@ -173,10 +175,12 @@ def _parse_json_response(text: str) -> dict:
     # Try to find a JSON block (```json ... ``` or bare {...})
     match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if match:
-        return json.loads(match.group(1))
+        parsed: dict = json.loads(match.group(1))
+        return parsed
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
-        return json.loads(match.group(0))
+        parsed = json.loads(match.group(0))
+        return parsed
     raise ValueError(f"No JSON object found in LLM response: {text[:200]}")
 
 
