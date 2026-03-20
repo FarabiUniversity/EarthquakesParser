@@ -1,6 +1,6 @@
 # Veritatis Fact-Checker
 
-RAG-система на LangGraph для оценки достоверности утверждений об землетрясениях.
+RAG-система для оценки достоверности утверждений об землетрясениях.
 Принимает произвольное утверждение, ищет похожие записи в Tier 2 Milvus-коллекции и возвращает оценку правдивости от **0.0** до **1.0**.
 
 ---
@@ -11,8 +11,8 @@ RAG-система на LangGraph для оценки достоверности
 2. [Компоненты](#компоненты)
    - [Milvus Tier 2](#milvus-tier-2)
    - [Retriever — query_collection](#retriever--query_collection)
-   - [LangGraph Tool — retrieve_facts](#langgraph-tool--retrieve_facts)
-   - [ReAct-агент](#react-агент)
+   - [LLM reasoning](#llm-reasoning)
+   - [Парсинг ответа](#парсинг-ответа)
    - [Structured output — FactCheckResult](#structured-output--factcheckresult)
 3. [Поток данных](#поток-данных)
 4. [Ключевое ограничение](#ключевое-ограничение)
@@ -34,14 +34,18 @@ RAG-система на LangGraph для оценки достоверности
        │
        ▼
  Milvus veritatis_tier2          COSINE HNSW, top-10
- vector_search(tier=2)
+ query_collection(claim)
        │
        ▼  список metadata-документов
       {iid, credibility_score, date, domain, distance}
        │
        ▼
- LangGraph ReAct Agent           gpt-4 via локальный OpenAI-прокси
- System prompt + retrieve_facts tool
+ ChatOpenAI.invoke(prompt)       gpt-4 via локальный OpenAI-прокси
+ system prompt + records as JSON
+       │
+       ▼
+ _extract_final_content()        strip <|channel|>final<|message|> framing
+ _parse_json_response()          extract JSON from response text
        │
        ▼
  FactCheckResult (Pydantic)
@@ -98,48 +102,55 @@ def query_collection(claim: str, top_k: int = 10) -> list[dict[str, Any]]:
 }
 ```
 
----
-
-### LangGraph Tool — `retrieve_facts`
-
-```python
-@tool
-def retrieve_facts(claim: str) -> list[dict]:
-    """Retrieve up to 10 relevant earthquake records from the credible (Tier 2) database."""
-    return query_collection(claim)
-```
-
-Агент может вызвать инструмент **несколько раз** — например, переформулировав запрос, если первый прогон вернул мало результатов или все `distance < 0.3`.
+Retrieval выполняется **в Python до вызова LLM** — никаких tool call со стороны модели не требуется.
 
 ---
 
-### ReAct-агент
+### LLM reasoning
 
-Строится через `langgraph.prebuilt.create_react_agent`:
+`fact_check()` формирует один prompt, объединяя системный промпт, утверждение и JSON-список извлечённых записей, и вызывает `ChatOpenAI.invoke()` напрямую:
 
 ```python
-agent = create_react_agent(
-    llm,                          # ChatOpenAI → локальный gpt-4
-    tools=[retrieve_facts],
-    prompt=_SYSTEM_PROMPT,
-    response_format=FactCheckResult,
+prompt = (
+    f"{_SYSTEM_PROMPT}\n\n"
+    f"CLAIM: {claim}\n\n"
+    f"RETRIEVED RECORDS FROM DATABASE:\n{records_text}\n\n"
+    "Based solely on the records above, produce your verdict.\n"
+    f"Respond with ONLY a valid JSON object in this exact format:\n{_JSON_SCHEMA}"
 )
+response = llm.invoke(prompt)
 ```
 
-**Системный промпт** объясняет агенту:
+**Системный промпт** объясняет модели:
 - что поля `distance` и `credibility_score` означают;
 - как на их основании выставить `score`;
-- когда нужно повторить поиск;
 - что оценка основывается **только** на данных из БД, а не на предобученных знаниях.
 
-**Логика оценки**, которую агент применяет при рассуждении:
+**Логика оценки**, которую модель применяет при рассуждении:
 
 | Сигнал | Влияние на score |
 |--------|------------------|
 | `distance ≥ 0.6` + `credibility_score ≥ 0.7` | сильное подтверждение |
 | Много записей из разных `domain` | независимые источники → score выше |
-| `distance < 0.3` у всех результатов | тема не покрыта базой → score ≈ 0.5 (неизвестно) |
+| `distance < 0.3` у всех результатов | тема не покрыта базой → score ≈ 0.5 |
 | Единственная запись с низким score | score снижается |
+
+---
+
+### Парсинг ответа
+
+Локальная LLM оборачивает ответ в channel-формат:
+
+```
+<|channel|>analysis<|message|>...<|end|>
+<|start|>assistant<|channel|>final<|message|>{"score": ..., "reasoning": ..., "sources": [...]}
+```
+
+Две вспомогательные функции обрабатывают это:
+
+**`_extract_final_content(text)`** — извлекает контент из канала `final`. Если маркер отсутствует, зачищает все `<|...|>` токены.
+
+**`_parse_json_response(text)`** — ищет JSON-блок в тексте (поддерживает ` ```json ``` ` и голый `{...}`).
 
 ---
 
@@ -152,35 +163,42 @@ class FactCheckResult(BaseModel):
     sources: list[str]    # домены задействованных документов
 ```
 
-LangGraph извлекает structured output через `model.with_structured_output(FactCheckResult)` на финальном шаге агента. Результат доступен в `result["structured_response"]`.
+Объект собирается вручную после парсинга JSON из ответа модели:
+
+```python
+return FactCheckResult(
+    score=float(data["score"]),
+    reasoning=str(data["reasoning"]),
+    sources=list(data.get("sources", [])),
+)
+```
 
 ---
 
 ## Поток данных
 
 ```
-1. fact_check("Earthquake M7.5 hit Turkey in 2023")
+1. fact_check("Earthquake M7.8 hit Turkey in February 2023")
        │
-2.     └─► LangGraph: HumanMessage → агент выбирает действие
-       │
-3.         retrieve_facts("Earthquake M7.5 hit Turkey in 2023")
+2.     └─► query_collection(claim, top_k=10)
                │
                └─► embed(claim) → вектор 384d
-               └─► Milvus COSINE search → top-10 hits
+               └─► Milvus COSINE search veritatis_tier2 → top-10 hits
                └─► return list[dict]  (metadata only, no text)
        │
-4.     агент рассуждает над metadata:
-           distance=[0.81, 0.76, 0.71, ...], credibility=[0.87, 0.92, ...]
-           domains=["usgs.gov", "emsc.eu", "reuters.com", ...]
+3.     prompt = system_prompt + claim + JSON(records)
+       llm.invoke(prompt)  →  raw LLM response
        │
-5.     при необходимости — повторный retrieve_facts с уточнённым запросом
+4.     _extract_final_content(raw)
+           strip <|channel|>final<|message|> framing
+       _parse_json_response(text)
+           find and parse {...} JSON block
        │
-6.     финальный шаг: structured output → FactCheckResult
-               score=0.88
-               reasoning="Found 8 records with distance ≥ 0.65 ..."
-               sources=["usgs.gov", "emsc.eu", "reuters.com"]
-       │
-7.     return FactCheckResult
+5.     return FactCheckResult(
+           score=0.92,
+           reasoning="All three Tier 2 records have high credibility...",
+           sources=["usgs.gov", "reuters.com", "earthquaketrack.com"]
+       )
 ```
 
 ---
@@ -189,7 +207,7 @@ LangGraph извлекает structured output через `model.with_structured
 
 > **Текст статей не хранится в Milvus.**
 
-Агент рассуждает исключительно по **метаданным**:
+Модель рассуждает исключительно по **метаданным**:
 - насколько семантически похож вектор записи на вектор утверждения (`distance`),
 - насколько был оценён источник (`credibility_score`),
 - откуда пришла запись (`domain`).
@@ -255,9 +273,9 @@ Content-Type: application/json
 ```json
 {
   "claim": "A magnitude 7.5 earthquake struck Turkey in February 2023",
-  "score": 0.88,
-  "reasoning": "Retrieved 9 records with high similarity (distance ≥ 0.70). Sources include usgs.gov (credibility 0.92) and emsc.eu (credibility 0.89). Multiple independent domains confirm earthquake activity in Turkey in early 2023. Score reflects strong coverage in the Tier 2 database.",
-  "sources": ["usgs.gov", "emsc.eu", "reuters.com", "bbc.com"]
+  "score": 0.92,
+  "reasoning": "All three Tier 2 records have high credibility (≥0.88) and strong semantic similarity to the claim (distances 0.68–0.84), indicating robust support for a magnitude 7.8 earthquake in Turkey on Feb 6, 2023.",
+  "sources": ["usgs.gov", "reuters.com", "earthquaketrack.com"]
 }
 ```
 
@@ -265,7 +283,7 @@ Content-Type: application/json
 |-------------|--------------|----------------------------------------------|
 | `claim`     | string       | Исходное утверждение (echo)                  |
 | `score`     | float 0–1    | Оценка правдивости                           |
-| `reasoning` | string       | Объяснение агента                            |
+| `reasoning` | string       | Объяснение модели                            |
 | `sources`   | list[string] | Домены документов, повлиявших на оценку      |
 
 #### Интерпретация `score`
@@ -321,9 +339,9 @@ from veritatis.agent import fact_check
 
 result = fact_check("A magnitude 7.5 earthquake struck Turkey in February 2023")
 
-print(result.score)      # 0.88
-print(result.reasoning)  # "Found 9 records with distance ≥ 0.70..."
-print(result.sources)    # ["usgs.gov", "emsc.eu", ...]
+print(result.score)      # 0.92
+print(result.reasoning)  # "All three Tier 2 records have high credibility..."
+print(result.sources)    # ["usgs.gov", "reuters.com", "earthquaketrack.com"]
 ```
 
 Только retriever (без LLM):
@@ -340,25 +358,24 @@ for doc in docs:
 
 ## Зависимости
 
-Модуль использует следующие пакеты (добавлены в `veritatis/pyproject.toml` и `requirements.txt`):
-
 | Пакет             | Версия     | Роль                                    |
 |-------------------|------------|-----------------------------------------|
-| `langgraph`       | ≥ 0.2.55   | ReAct-агент, граф вычислений            |
 | `langchain-openai`| ≥ 0.1.0    | `ChatOpenAI` с поддержкой `base_url`    |
 | `langchain-core`  | ≥ 0.2.0    | `@tool` декоратор, базовые типы         |
 | `pymilvus`        | 2.6.3      | Поиск в Milvus (уже был в зависимостях) |
 | `sentence-transformers` | 2.2.2 | Генерация эмбеддингов               |
-| `pydantic`        | ≥ 2.0      | Structured output (`FactCheckResult`)   |
+| `pydantic`        | ≥ 2.0      | `FactCheckResult` dataclass             |
+
+> `langgraph` остаётся в `requirements.txt` как транзитивная зависимость, но больше не используется в `agent.py`.
 
 ---
 
 ## Связанные файлы
 
-| Файл                                  | Роль                                          |
-|---------------------------------------|-----------------------------------------------|
-| `veritatis/veritatis/agent.py`        | Весь код агента: retriever, tool, LLM, граф   |
-| `veritatis/veritatis/plain_search.py` | `vector_search()` — низкоуровневый поиск      |
-| `veritatis/veritatis/embeddings.py`   | `EmbeddingGenerator` — SentenceTransformer    |
-| `veritatis/veritatis/vector_stores.py`| Схема коллекций, `ensure_collection_loaded`   |
-| `veritatis/api/main.py`               | FastAPI приложение, эндпоинт `POST /fact-check`|
+| Файл                                  | Роль                                              |
+|---------------------------------------|---------------------------------------------------|
+| `veritatis/veritatis/agent.py`        | Retriever, LLM вызов, парсинг ответа, `FactCheckResult` |
+| `veritatis/veritatis/plain_search.py` | `vector_search()` — низкоуровневый поиск          |
+| `veritatis/veritatis/embeddings.py`   | `EmbeddingGenerator` — SentenceTransformer        |
+| `veritatis/veritatis/vector_stores.py`| Схема коллекций, `ensure_collection_loaded`       |
+| `veritatis/api/main.py`               | FastAPI приложение, эндпоинт `POST /fact-check`   |
