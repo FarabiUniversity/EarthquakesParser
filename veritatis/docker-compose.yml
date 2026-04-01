@@ -66,12 +66,28 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       - ENV=development
       - MILVUS_HOST=milvus
       - MILVUS_PORT=19530
+      - MILVUS_RECREATE_ON_STARTUP=false
     volumes:
       - ./volumes/huggingface_cache:/root/.cache/huggingface
+    depends_on:
+      - milvus
+    networks:
+      - milvus
+
+  attu:
+    container_name: milvus-attu
+    image: zilliz/attu:v2.6.4
+    restart: unless-stopped
+    environment:
+      - MILVUS_URL=milvus:19530
+    ports:
+      - "3000:3000"
     depends_on:
       - milvus
     networks:
