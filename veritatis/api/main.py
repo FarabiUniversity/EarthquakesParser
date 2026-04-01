@@ -10,11 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymilvus.orm import utility  # noqa: E402
 
-from veritatis.embeddings import embedding_generator  # noqa: E402
-from veritatis.similarity import SimilarityDetector  # noqa: E402
 from veritatis.ingestion import IngestResult, ingest_record, set_store
 from veritatis.plain_search import vector_search
 from veritatis.search import RelevanceFilter, search_with_relevance_filter
+from veritatis.similarity import SimilarityDetector  # noqa: E402
 from veritatis.vector_stores import (
     MilvusRecordStore,
     collection_for_tier,
@@ -30,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Module-level store reference (used by /move and /update_credibility)
 _store: Optional[MilvusRecordStore] = None
+_TIER1 = ""
 
 
 @asynccontextmanager
@@ -210,6 +210,10 @@ async def search(
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
     return {"query": query, "top_k": top_k, "results": hits}
+
+
+_TIER1 = "veritatis_tier1_lake"
+_TIER2 = "veritatis_tier2_arena"
 
 
 # Smart search with relevance filtering
