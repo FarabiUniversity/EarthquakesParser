@@ -12,7 +12,11 @@ from typing import Any, Dict, List, Optional
 from pymilvus import Collection
 
 from veritatis.embeddings import embedding_generator
-from veritatis.vector_stores import ensure_collection_loaded
+from veritatis.vector_stores import (
+    ALL_TIER_COLLECTIONS,
+    collection_for_tier,
+    ensure_collection_loaded,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +25,11 @@ logger = logging.getLogger(__name__)
 class SearchResult:
     """Container for a single search result with metadata."""
 
-    id: str
-    content: str
-    source_url: str
+    iid: str
+    tier: int
     credibility_score: float
-    ingested_timestamp: int
-    supabase_id: str
+    date: int
+    domain: str
     similarity_score: float  # COSINE distance (higher = more similar)
     is_relevant: bool
 
@@ -110,65 +113,84 @@ class RelevanceFilter:
 
 
 def search_with_relevance_filter(
-    collection_name: str,
-    query: str,
+    collection_name: Optional[str] = None,
+    query: str = "",
     top_k: int = 10,
     relevance_threshold: Optional[float] = None,
     use_adaptive_threshold: bool = False,
+    tier: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Perform vector search with automatic relevance filtering.
 
     Args:
-        collection_name: Milvus collection to search
+        collection_name: Explicit Milvus collection to search (overrides tier).
         query: Search query text
         top_k: Number of results to retrieve before filtering
         relevance_threshold: Minimum similarity score (None = use default)
         use_adaptive_threshold: Calculate threshold from result distribution
+        tier: Tier (1, 2, or 3) whose collection to search.
+              When None and collection_name is None, all tiers are searched.
 
     Returns:
         Dictionary with relevant results, filtered results, and metadata
     """
-    logger.info(f"Searching '{collection_name}' for query: '{query[:50]}...'")
+    # Determine which collections to search
+    collections_to_search: List[tuple[str, Optional[int]]]
+    if collection_name is not None:
+        collections_to_search = [(collection_name, None)]
+    elif tier is not None:
+        collections_to_search = [(collection_for_tier(tier), tier)]
+    else:
+        collections_to_search = [
+            (name, idx + 1) for idx, name in enumerate(ALL_TIER_COLLECTIONS)
+        ]
+
+    display_name = collection_name or (
+        collection_for_tier(tier) if tier else "all tiers"
+    )
+    logger.info(f"Searching '{display_name}' for query: '{query[:50]}...'")
 
     # Step 1: Generate query embedding
     query_embedding = embedding_generator.embed(query)
 
-    # Step 2: Load collection and perform search
-    ensure_collection_loaded(collection_name)
-    collection = Collection(collection_name)
-
     search_params = {"metric_type": "COSINE", "params": {"ef": 128}}
 
-    search_results = collection.search(
-        data=[query_embedding],
-        anns_field="embedding",
-        param=search_params,
-        limit=top_k,
-        output_fields=[
-            "id",
-            "content",
-            "source_url",
-            "credibility_score",
-            "ingested_timestamp",
-            "supabase_id",
-        ],
-    )
+    # Step 2: Search each target collection and merge results
+    all_results: List[SearchResult] = []
+    for col_name, inferred_tier in collections_to_search:
+        ensure_collection_loaded(col_name)
+        collection = Collection(col_name)
 
-    # Step 3: Convert Milvus results to SearchResult objects
-    all_results = []
-    for hit in search_results[0]:
-        result = SearchResult(
-            id=str(hit.id),
-            content=str(getattr(hit, "content", "")),
-            source_url=str(getattr(hit, "source_url", "")),
-            credibility_score=float(getattr(hit, "credibility_score", 0.0)),
-            ingested_timestamp=int(getattr(hit, "ingested_timestamp", 0)),
-            supabase_id=str(getattr(hit, "supabase_id", "")),
-            similarity_score=float(hit.distance),
-            is_relevant=False,  # Will be set by filter
+        search_results = collection.search(
+            data=[query_embedding],
+            anns_field="embedding",
+            param=search_params,
+            limit=top_k,
+            output_fields=[
+                "iid",
+                "credibility_score",
+                "date",
+                "domain",
+            ],
         )
-        all_results.append(result)
+
+        determined_tier = inferred_tier or 0
+        for hit in search_results[0]:
+            result = SearchResult(
+                iid=str(hit.id),
+                tier=determined_tier,
+                credibility_score=float(getattr(hit, "credibility_score", 0.0)),
+                date=int(getattr(hit, "date", 0)),
+                domain=str(getattr(hit, "domain", "")),
+                similarity_score=float(hit.distance),
+                is_relevant=False,
+            )
+            all_results.append(result)
+
+    # Sort merged results by similarity (descending) and keep top_k
+    all_results.sort(key=lambda r: r.similarity_score, reverse=True)
+    all_results = all_results[:top_k]
 
     # Step 4: Determine threshold
     if use_adaptive_threshold:
@@ -200,19 +222,18 @@ def search_with_relevance_filter(
         "irrelevant_count": len(irrelevant_results),
         "relevant_results": [
             {
-                "id": r.id,
-                "content": r.content,
-                "source_url": r.source_url,
+                "iid": r.iid,
+                "tier": r.tier,
                 "credibility_score": r.credibility_score,
-                "ingested_timestamp": r.ingested_timestamp,
-                "supabase_id": r.supabase_id,
+                "date": r.date,
+                "domain": r.domain,
                 "similarity_score": r.similarity_score,
             }
             for r in relevant_results
         ],
         "filtered_results": [
             {
-                "id": r.id,
+                "iid": r.iid,
                 "similarity_score": r.similarity_score,
                 "reason": (
                     f"Below threshold " f"({r.similarity_score:.3f} < {threshold:.3f})"

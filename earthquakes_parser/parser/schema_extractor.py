@@ -130,6 +130,7 @@ Here is the HTML content:
             print(f"⚠️ Prompt contains {token_count} tokens. Truncating HTML.")
             max_chars = int(len(html) * (self.max_tokens / token_count * 0.9))
             html = html[:max_chars]
+            print(html)
 
         return html
 
