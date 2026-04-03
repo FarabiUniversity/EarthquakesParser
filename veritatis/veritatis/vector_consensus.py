@@ -167,7 +167,8 @@ def _fetch_supabase_main_text_by_iids(iids: List[str]) -> Dict[str, str]:
         for row in rows:
             try:
                 rid = str(row.get("id", ""))
-            except Exception:
+            except (AttributeError, TypeError):
+                # Skip rows where .get() fails (not a dict-like object)
                 continue
             if not rid:
                 continue
