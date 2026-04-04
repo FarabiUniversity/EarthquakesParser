@@ -1,4 +1,4 @@
-"""Main entry point for the veritatis API using FastAPI with relevance filtering."""
+"""Main entry point for the veritatis API."""
 
 import logging
 import time
@@ -11,8 +11,7 @@ from fastapi.responses import JSONResponse
 from pymilvus.orm import utility  # noqa: E402
 
 from veritatis.ingestion import IngestResult, ingest_record, set_store
-from veritatis.plain_search import vector_search
-from veritatis.search import RelevanceFilter, search_with_relevance_filter
+from veritatis.vector_consensus import find_most_relevant_vector
 from veritatis.vector_stores import (
     MilvusRecordStore,
     collection_for_tier,
@@ -191,80 +190,128 @@ async def update_credibility(
     return {"updated": count, "collection": col}
 
 
-# --- Vector search endpoint (legacy - no filtering) ---
-@app.post("/search")
-async def search(
-    query: str = Body(..., embed=True),  # noqa: B008
-    top_k: int = Body(default=10),  # noqa: B008
-    tier: Optional[int] = Body(default=None),  # noqa: B008
+_TIER1 = "veritatis_tier1_lake"
+_TIER2 = "veritatis_tier2_arena"
+
+
+# --- Consensus analysis endpoint ---
+@app.post("/consensus/analyze")
+async def consensus_analyze(
+    limit: Optional[int] = Body(default=None),  # noqa: B008
+    top_n: int = Body(default=10),  # noqa: B008
+    threshold: float = Body(default=0.7),  # noqa: B008
+    centrality_weight: float = Body(default=0.6),  # noqa: B008
+    detail_weight: float = Body(default=0.4),  # noqa: B008
+    credibility_weight: float = Body(default=0.0),  # noqa: B008
 ):
-    """Run a vector similarity search with no relevance filtering.
+    """Analyze Tier 1 vectors and promote the best to Tier 2.
 
-    ``tier`` selects which collection to search (1, 2, or 3).
-    When ``None``, all tier collections are searched.
+    Compares all vectors against each other (no query needed) using centrality,
+    detail, and credibility scores. The vector with the highest combined_score
+    is always moved to Tier 2.
+
+    Parameters:
+    - limit: max number of vectors to analyze (None = all)
+    - top_n: how many top results to include in the response
+    - threshold: score threshold used only for reporting (above_threshold_count)
+    - centrality_weight: weight for centrality score (default 0.6)
+    - detail_weight: weight for detail score (default 0.4)
+    - credibility_weight: weight for credibility score (default 0.0)
+
+    All three weights must sum to 1.0.
     """
-    try:
-        hits = vector_search(query, top_k=top_k, tier=tier)
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-    return {"query": query, "top_k": top_k, "results": hits}
-
-
-# Smart search with relevance filtering
-@app.post("/search/relevant")
-async def search_relevant(
-    query: str = Body(..., embed=True),  # noqa: B008
-    top_k: int = Body(default=10),  # noqa: B008
-    relevance_threshold: Optional[float] = Body(default=None),  # noqa: B008
-    use_adaptive_threshold: bool = Body(default=False),  # noqa: B008
-    tier: Optional[int] = Body(default=None),  # noqa: B008
-):
-    """Run vector search with automatic relevance filtering.
-
-    ``tier`` selects which collection to search (1, 2, or 3).
-    When ``None``, all tier collections are searched.
-    """
-    try:
-        return search_with_relevance_filter(
-            query=query,
-            top_k=top_k,
-            relevance_threshold=relevance_threshold,
-            use_adaptive_threshold=use_adaptive_threshold,
-            tier=tier,
+    if _store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store not initialized. Check Milvus connection.",
         )
+
+    if abs(centrality_weight + detail_weight + credibility_weight - 1.0) > 1e-6:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "centrality_weight + detail_weight + credibility_weight "
+                "must equal 1.0, got "
+                f"{centrality_weight + detail_weight + credibility_weight:.6f}"
+            ),
+        )
+
+    try:
+        best, all_ranked = find_most_relevant_vector(
+            collection_name=_TIER1,
+            centrality_weight=centrality_weight,
+            detail_weight=detail_weight,
+            credibility_weight=credibility_weight,
+            limit=limit,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Search error: {e}")
+        logger.error(f"Consensus analysis error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-
-# --- Strict relevance search ---
-@app.post("/search/strict")
-async def search_strict(
-    query: str = Body(..., embed=True),  # noqa: B008
-    top_k: int = Body(default=10),  # noqa: B008
-    tier: Optional[int] = Body(default=None),  # noqa: B008
-):
-    """Search with strict relevance filtering (threshold=0.7).
-
-    ``tier`` selects which collection to search (1, 2, or 3).
-    When ``None``, all tier collections are searched.
-    """
+    # Move best vector to Tier 2 (same schema across tiers)
+    moved = False
+    move_error: Optional[str] = None
     try:
-        response = search_with_relevance_filter(
-            query=query,
-            top_k=top_k,
-            relevance_threshold=RelevanceFilter.STRICT_THRESHOLD,
-            tier=tier,
-        )
-        return {
-            "query": query,
-            "threshold": response["threshold"],
-            "results": response["relevant_results"],
-            "filtered_count": response["irrelevant_count"],
+        moved_count = _store.move_records(_TIER1, _TIER2, [best.iid])
+        moved = moved_count == 1
+        if moved:
+            logger.info(f"Moved best vector {best.iid} from Tier 1 to Tier 2")
+        else:
+            move_error = "Record was not found in Tier 1 (already moved?)"
+    except Exception as e:
+        move_error = str(e)
+        logger.error(f"Failed to move vector {best.iid} to Tier 2: {e}")
+
+    # Build stats
+    scores = [v.combined_score for v in all_ranked]
+    centralities = [v.centrality_score for v in all_ranked]
+    details = [v.detail_score for v in all_ranked]
+    n = len(scores)
+
+    top_list: List[Dict[str, Any]] = [
+        {
+            "rank": i + 1,
+            "iid": v.iid,
+            "combined_score": round(v.combined_score, 4),
+            "centrality_score": round(v.centrality_score, 4),
+            "detail_score": round(v.detail_score, 4),
+            "main_text_length": v.main_text_length,
         }
-    except Exception as e:
-        logger.error(f"Strict search error: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        for i, v in enumerate(all_ranked[:top_n])
+    ]
+
+    response: Dict[str, Any] = {
+        "analyzed_count": n,
+        "best_vector": {
+            "iid": best.iid,
+            "main_text": best.main_text,
+            "credibility_score": best.credibility_score,
+            "date": best.date,
+            "domain": best.domain,
+            "centrality_score": round(best.centrality_score, 4),
+            "detail_score": round(best.detail_score, 4),
+            "combined_score": round(best.combined_score, 4),
+            "main_text_length": best.main_text_length,
+        },
+        "moved_to_tier2": moved,
+        "top_n": top_list,
+        "stats": {
+            "avg_combined_score": round(sum(scores) / n, 4),
+            "min_combined_score": round(min(scores), 4),
+            "max_combined_score": round(max(scores), 4),
+            "avg_centrality_score": round(sum(centralities) / n, 4),
+            "avg_detail_score": round(sum(details) / n, 4),
+            "above_threshold_count": sum(1 for s in scores if s >= threshold),
+            "threshold_used": threshold,
+        },
+    }
+
+    if move_error is not None:
+        response["move_error"] = move_error
+
+    return response
 
 
 # --- Error handler example ---
