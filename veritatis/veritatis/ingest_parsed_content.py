@@ -8,22 +8,34 @@ collection.  The text itself is *not* stored in Milvus.
 After successful ingestion the Supabase rows are marked ``status='ingested'``.
 """
 
+import importlib
 import json
+import logging
+import multiprocessing as mp
 import os
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Sequence, cast
+from typing import Any, Dict, Iterable, List, Optional, Sequence, cast
 
 from postgrest.exceptions import APIError
 
-from veritatis.ingestion import ingest_record
+from veritatis.ingestion import get_store, ingest_record
+from veritatis.vector_stores import collection_for_tier
+
+# gRPC (used indirectly by pymilvus) can emit noisy Abseil logs to STDERR on macOS
+# in some grpcio versions. Allow users to override, but default to silence.
+os.environ.setdefault("GRPC_VERBOSITY", "NONE")
+
+
+logger = logging.getLogger(__name__)
 
 try:
     from dotenv import load_dotenv
 except ImportError:
-    load_dotenv = None
-
-if load_dotenv is not None:
+    pass
+else:
     load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -57,14 +69,17 @@ def _get_supabase_client():
         _SUPABASE_CLIENT = SupabaseDB(url=SUPABASE_URL, key=SUPABASE_KEY).client
         return _SUPABASE_CLIENT
     except Exception:
-        from supabase import create_client  # type: ignore[attr-defined]
-
-        _SUPABASE_CLIENT = create_client(SUPABASE_URL, SUPABASE_KEY)
+        supabase_mod = importlib.import_module("supabase")
+        _SUPABASE_CLIENT = supabase_mod.create_client(SUPABASE_URL, SUPABASE_KEY)
         return _SUPABASE_CLIENT
 
 
 BATCH_SIZE = 100
 SLEEP_BETWEEN_BATCHES = 0.2  # seconds
+
+# Number of worker threads used to ingest a batch.
+# Set INGEST_WORKERS=1 to disable multithreading.
+INGEST_WORKERS = max(1, int(os.getenv("INGEST_WORKERS", "4")))
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +178,6 @@ def fetch_parsed_content(
     client = _get_supabase_client()
 
     select_cols = "id, main_text, date, page_schema_id, page_schemas(domain)"
-
     try:
         response = (
             client.table("parsed_content")
@@ -173,7 +187,8 @@ def fetch_parsed_content(
             .range(offset, offset + limit - 1)
             .execute()
         )
-        return cast(List[Dict[str, Any]], response.data)
+        data = cast(List[Dict[str, Any]], response.data)
+        return data
     except APIError as e:
         msg = str(e)
         if "date" not in msg:
@@ -187,7 +202,8 @@ def fetch_parsed_content(
             .range(offset, offset + limit - 1)
             .execute()
         )
-        return cast(List[Dict[str, Any]], response.data)
+        data = cast(List[Dict[str, Any]], response.data)
+        return data
 
 
 def _unique_ids(values: Iterable[str]) -> List[str]:
@@ -233,28 +249,80 @@ def send_to_ingest(records: List[Dict[str, Any]]) -> List[str]:
     Returns a deduplicated list of parsed_content IDs that were processed.
     """
     ingested_parsed_content_ids: List[str] = []
+    seen_ids: set[str] = set()
+    seen_ids_lock = threading.Lock()
+    inserted_any = threading.Event()
 
-    for r in records:
-        text = normalize_main_text(r.get("main_text"))
+    # Create/reuse the Milvus store once to avoid a race on the singleton
+    # initialization when using threads.
+    store = get_store()
+
+    tier = 1
+    target_collection = collection_for_tier(tier)
+
+    def _ingest_one(row: Dict[str, Any]) -> Optional[str]:
+        text = normalize_main_text(row.get("main_text"))
         if not text:
-            continue
+            return None
 
-        parsed_content_id = r["id"]
-        date_ms = _parse_date_to_epoch_ms(r.get("date"))
-        domain = _extract_domain(r)
+        parsed_content_id_raw = row.get("id")
+        if not parsed_content_id_raw:
+            return None
+        parsed_content_id = str(parsed_content_id_raw)
+        with seen_ids_lock:
+            if parsed_content_id in seen_ids:
+                return parsed_content_id
+            seen_ids.add(parsed_content_id)
+        date_ms = _parse_date_to_epoch_ms(row.get("date"))
+        domain = _extract_domain(row)
 
-        ingest_record(
+        res = ingest_record(
             text,
             iid=parsed_content_id,
-            tier=1,
+            tier=tier,
             credibility_score=0.0,
             date=date_ms,
             domain=domain,
+            store=store,
+            flush=False,
         )
+        if res.status == "inserted":
+            inserted_any.set()
+        return parsed_content_id
 
-        ingested_parsed_content_ids.append(parsed_content_id)
+    if INGEST_WORKERS == 1 or len(records) <= 1:
+        for r in records:
+            try:
+                iid = _ingest_one(r)
+            except Exception as e:
+                logger.exception("Failed to ingest record: %s", e)
+                continue
+            if iid:
+                ingested_parsed_content_ids.append(iid)
+        # Flush once per batch for performance (only if we inserted anything).
+        if inserted_any.is_set():
+            store.flush_collection(target_collection)
 
-    return _unique_ids(ingested_parsed_content_ids)
+        out = _unique_ids(ingested_parsed_content_ids)
+        return out
+
+    with ThreadPoolExecutor(max_workers=INGEST_WORKERS) as executor:
+        futures = [executor.submit(_ingest_one, r) for r in records]
+        for fut in as_completed(futures):
+            try:
+                iid = fut.result()
+            except Exception as e:
+                logger.exception("Failed to ingest record: %s", e)
+                continue
+            if iid:
+                ingested_parsed_content_ids.append(iid)
+
+    out = _unique_ids(ingested_parsed_content_ids)
+
+    # Flush once per batch for performance (only if we inserted anything).
+    if inserted_any.is_set():
+        store.flush_collection(target_collection)
+    return out
 
 
 def main():
@@ -274,4 +342,11 @@ def main():
 
 
 if __name__ == "__main__":
+    # gRPC (used by pymilvus) is not fork-safe once background threads exist.
+    # Prefer 'spawn' if multiprocessing is used to avoid fork-related issues.
+    try:
+        if mp.get_start_method(allow_none=True) != "spawn":
+            mp.set_start_method("spawn")
+    except RuntimeError:
+        pass
     main()
