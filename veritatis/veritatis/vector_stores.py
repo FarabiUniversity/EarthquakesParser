@@ -231,6 +231,7 @@ def ensure_collection_loaded(collection_name: str) -> None:
     Loads collection if not already loaded for insert/search operations.
     """
     try:
+        ensure_connection()
         load_state = utility.load_state(collection_name)
         if load_state == LoadState.Loaded:
             return  # Already loaded

@@ -6,37 +6,105 @@ that should be consolidated and moved to Tier 2 after summarization.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set
 
 from pymilvus import Collection
 
+from veritatis.ingest_parsed_content import _get_supabase_client
 from veritatis.vector_stores import ensure_collection_loaded
 
 logger = logging.getLogger(__name__)
+
+# Supabase client setup (reused from vector_consensus.py pattern)
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+
+_SUPABASE_CLIENT: Any = None
+
+
+def _fetch_main_text_by_iids(iids: List[str]) -> Dict[str, str]:
+    """Fetch main_text from Supabase for given iids."""
+    if not iids:
+        return {}
+
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        logger.warning("SUPABASE_URL/SUPABASE_KEY not set; returning empty content")
+        return {}
+
+    client = _get_supabase_client()
+    out: Dict[str, str] = {}
+
+    chunk_size = 200
+    for i in range(0, len(iids), chunk_size):
+        chunk = iids[i : i + chunk_size]
+        try:
+            resp = (
+                client.table("parsed_content")
+                .select("id, main_text")
+                .in_("id", chunk)
+                .execute()
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch parsed_content.main_text: {e}")
+            continue
+
+        rows = getattr(resp, "data", None) or []
+        for row in rows:
+            try:
+                rid = str(row.get("id", ""))
+            except (AttributeError, TypeError):
+                continue
+            if not rid:
+                continue
+            main_text = row.get("main_text", "")
+            if isinstance(main_text, str):
+                out[rid] = main_text
+            else:
+                out[rid] = str(main_text) if main_text else ""
+    return out
 
 
 @dataclass
 class SimilarityGroup:
     """Represents a group of similar embeddings."""
 
-    anchor_id: str  # The record used as the search anchor
-    anchor_content: str
+    anchor_iid: str  # The record iid used as the search anchor
+    anchor_content: str  # Fetched from Supabase
     similar_records: List[Dict[str, Any]]  # List of similar records with metadata
     similarity_threshold: float
     group_size: int
 
-    def get_all_ids(self) -> List[str]:
-        """Return all record IDs in this group (anchor + similar records)."""
-        ids = [self.anchor_id]
-        ids.extend([r["id"] for r in self.similar_records])
-        return ids
+    def get_all_iids(self) -> List[str]:
+        """Return all record iids in this group (anchor + similar records)."""
+        iids = [self.anchor_iid]
+        iids.extend([r["iid"] for r in self.similar_records])
+        return iids
 
     def get_all_contents(self) -> List[str]:
         """Return all content texts for summarization."""
         contents = [self.anchor_content]
         contents.extend([r["content"] for r in self.similar_records])
         return contents
+
+    # Backwards compatibility alias
+    @property
+    def anchor_id(self) -> str:
+        """Alias for anchor_iid (backwards compatibility)."""
+        return self.anchor_iid
+
+    def get_all_ids(self) -> List[str]:
+        """Alias for get_all_iids (backwards compatibility)."""
+        return self.get_all_iids()
 
 
 class SimilarityDetector:
@@ -91,7 +159,7 @@ class SimilarityDetector:
             skip_processed: Skip records already in processed_ids set
 
         Returns:
-            List of SimilarityGroup objects
+            List of SimilarityGroup objects with content fetched from Supabase
         """
         logger.info(
             f"Starting similarity detection in '{self.collection_name}' "
@@ -110,13 +178,18 @@ class SimilarityDetector:
             logger.warning("No records found in collection")
             return []
 
-        # Step 2: For each record, find similar neighbors
+        # Step 2: Fetch content from Supabase for all records
+        all_iids = [r["iid"] for r in all_records]
+        content_map = _fetch_main_text_by_iids(all_iids)
+        logger.info(f"Fetched content for {len(content_map)} records from Supabase")
+
+        # Step 3: For each record, find similar neighbors
         similarity_groups = []
         for record in all_records:
-            record_id = record["id"]
+            record_iid = record["iid"]
 
             # Skip if already processed (part of another group)
-            if skip_processed and record_id in self.processed_ids:
+            if skip_processed and record_iid in self.processed_ids:
                 continue
 
             # Search for similar records using this record's embedding
@@ -125,16 +198,20 @@ class SimilarityDetector:
             # Filter out already processed records
             if skip_processed:
                 similar_records = [
-                    r for r in similar_records if r["id"] not in self.processed_ids
+                    r for r in similar_records if r["iid"] not in self.processed_ids
                 ]
 
             # Check if we have enough similar records to form a group
             if len(similar_records) >= (
                 self.min_group_size - 1
             ):  # -1 because anchor counts
+                # Fill in content for similar records
+                for r in similar_records:
+                    r["content"] = content_map.get(r["iid"], "")
+
                 group = SimilarityGroup(
-                    anchor_id=record_id,
-                    anchor_content=record["content"],
+                    anchor_iid=record_iid,
+                    anchor_content=content_map.get(record_iid, ""),
                     similar_records=similar_records,
                     similarity_threshold=self.similarity_threshold,
                     group_size=len(similar_records) + 1,
@@ -143,12 +220,12 @@ class SimilarityDetector:
                 similarity_groups.append(group)
 
                 # Mark all records in this group as processed
-                for record_id_in_group in group.get_all_ids():
-                    self.processed_ids.add(record_id_in_group)
+                for iid_in_group in group.get_all_iids():
+                    self.processed_ids.add(iid_in_group)
 
                 logger.info(
                     f"Found similarity group: "
-                    f"anchor={record_id[:8]}..., "
+                    f"anchor={record_iid[:8]}..., "
                     f"size={group.group_size}"
                 )
 
@@ -168,15 +245,14 @@ class SimilarityDetector:
         """
         Retrieve all records from the collection.
 
-        Returns list of dicts with all fields except embedding vector.
+        Returns list of dicts with iid and metadata. Content is NOT included here
+        (must be fetched from Supabase separately).
         """
         try:
-            # Query all records (Milvus expression: empty string or always-true expr)
-            # We need: id, content, embedding for similarity search
-            # Note: We can't retrieve embedding in query, so we'll use search instead
+            # Query all records - use iid instead of id
             results = collection.query(
-                expr="",  # Empty expr = all records
-                output_fields=["id", "content", "source_url", "credibility_score"],
+                expr="iid != ''",  # Match all records with non-empty iid
+                output_fields=["iid", "credibility_score", "date", "domain"],
                 limit=10000,  # Adjust based on expected Tier 1 size
             )
             return list(results)
@@ -197,17 +273,16 @@ class SimilarityDetector:
         Returns:
             List of similar records (excluding the anchor itself)
         """
-        anchor_id = anchor_record["id"]
+        anchor_iid = anchor_record["iid"]
 
-        # We need to get the embedding for this record
-        # Query to get the embedding vector
+        # Get the embedding for this record
         try:
-            anchor_embedding = self._get_record_embedding(collection, anchor_id)
+            anchor_embedding = self._get_record_embedding(collection, anchor_iid)
             if anchor_embedding is None:
-                logger.warning(f"Could not retrieve embedding for {anchor_id}")
+                logger.warning(f"Could not retrieve embedding for {anchor_iid}")
                 return []
         except Exception as e:
-            logger.error(f"Error getting embedding for {anchor_id}: {e}")
+            logger.error(f"Error getting embedding for {anchor_iid}: {e}")
             return []
 
         # Perform vector search to find similar records
@@ -220,7 +295,7 @@ class SimilarityDetector:
                 param=search_params,
                 limit=self.max_search_results
                 + 1,  # +1 because anchor will be in results
-                output_fields=["id", "content", "source_url", "credibility_score"],
+                output_fields=["iid", "credibility_score", "date", "domain"],
             )
         except Exception as e:
             logger.error(f"Error searching for similar records: {e}")
@@ -229,37 +304,38 @@ class SimilarityDetector:
         # Process results
         similar_records = []
         for hit in search_results[0]:
-            hit_id = str(hit.id)
+            hit_iid = str(hit.entity.get("iid"))
             similarity_score = float(hit.distance)
 
             # Skip the anchor itself
-            if hit_id == anchor_id:
+            if hit_iid == anchor_iid:
                 continue
 
             # Only include if similarity is above threshold
             if similarity_score >= self.similarity_threshold:
                 similar_records.append(
                     {
-                        "id": hit_id,
-                        "content": str(getattr(hit, "content", "")),
-                        "source_url": str(getattr(hit, "source_url", "")),
+                        "iid": hit_iid,
                         "credibility_score": float(
-                            getattr(hit, "credibility_score", 0.0)
+                            hit.entity.get("credibility_score", 0.0)
                         ),
+                        "date": int(hit.entity.get("date", 0)),
+                        "domain": str(hit.entity.get("domain", "")),
                         "similarity_score": similarity_score,
+                        "content": "",  # Will be filled later from Supabase
                     }
                 )
 
         return similar_records
 
     def _get_record_embedding(
-        self, collection: Collection, record_id: str
+        self, collection: Collection, record_iid: str
     ) -> Optional[List[float]]:
         """
         Retrieve the embedding vector for a specific record.
 
         Milvus doesn't return vector fields in query() by default,
-        so we need to use get() method or search with the ID.
+        so we need to use get() method or search with the iid.
         """
         try:
             # Get all field names including embedding
@@ -267,7 +343,7 @@ class SimilarityDetector:
 
             # Query to get the full record including embedding
             results = collection.query(
-                expr=f'id in ["{record_id}"]',
+                expr=f'iid == "{record_iid}"',
                 output_fields=field_names,  # Include all fields
             )
 
@@ -277,7 +353,7 @@ class SimilarityDetector:
                     return list(embedding)
             return None
         except Exception as e:
-            logger.error(f"Error retrieving embedding for {record_id}: {e}")
+            logger.error(f"Error retrieving embedding for {record_iid}: {e}")
             return None
 
     def process_similarity_groups_batch(
