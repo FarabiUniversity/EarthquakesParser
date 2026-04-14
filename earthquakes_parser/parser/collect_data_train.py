@@ -1,4 +1,5 @@
 """Data collection and training module for earthquake parser."""
+
 import json
 import re
 from typing import Any, Optional, TypedDict, cast
