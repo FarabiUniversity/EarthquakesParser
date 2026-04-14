@@ -194,9 +194,7 @@ def print_detailed_table(df: pd.DataFrame):
 def plot_summary_comparison(df: pd.DataFrame, output_dir: str = "."):
     """График сравнения основных метрик моделей."""
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle(
-        "Model Comparison by Key Metrics", fontsize=16, fontweight="bold"
-    )
+    fig.suptitle("Model Comparison by Key Metrics", fontsize=16, fontweight="bold")
 
     models = df["Model"].tolist()
     colors = ["#3498db", "#2ecc71", "#e74c3c", "#9b59b6", "#f39c12"][: len(models)]
@@ -440,12 +438,8 @@ def plot_text_vs_date_quality(details_df: pd.DataFrame, output_dir: str = "."):
 
     # Add quadrant labels
     ax.text(7.5, 7.5, "Excellent", fontsize=12, ha="center", color="green", alpha=0.7)
-    ax.text(
-        2.5, 7.5, "Weak Text", fontsize=10, ha="center", color="orange", alpha=0.7
-    )
-    ax.text(
-        7.5, 2.5, "Weak Date", fontsize=10, ha="center", color="orange", alpha=0.7
-    )
+    ax.text(2.5, 7.5, "Weak Text", fontsize=10, ha="center", color="orange", alpha=0.7)
+    ax.text(7.5, 2.5, "Weak Date", fontsize=10, ha="center", color="orange", alpha=0.7)
     ax.text(2.5, 2.5, "Poor", fontsize=12, ha="center", color="red", alpha=0.7)
 
     plt.tight_layout()
@@ -522,9 +516,7 @@ def plot_error_analysis(error_df: pd.DataFrame, output_dir: str = "."):
         return
 
     fig, axes = plt.subplots(2, 1, figsize=(14, 12))
-    fig.suptitle(
-        "Error Analysis by Source (Domains)", fontsize=16, fontweight="bold"
-    )
+    fig.suptitle("Error Analysis by Source (Domains)", fontsize=16, fontweight="bold")
 
     # 1. Топ-10 доменов по общему количеству ошибок
     ax1 = axes[0]
