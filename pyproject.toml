@@ -44,6 +44,9 @@ supabase = [
 s3 = [
     "boto3>=1.28.0",
 ]
+monitoring = [
+    "rich>=13.0.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
