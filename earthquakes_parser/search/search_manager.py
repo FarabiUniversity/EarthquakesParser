@@ -1,6 +1,7 @@
 """Business logic for managing earthquake search operations with Supabase storage."""
 
 from typing import List, Literal, Optional
+from urllib.parse import urlparse
 
 from earthquakes_parser import SupabaseFileStorage
 from earthquakes_parser.search.base_searcher import BaseSearcher
@@ -33,27 +34,28 @@ class SearchManager:
         max_results: int = 5,
         site_filter: Optional[str] = None,
         skip_existing: bool = True,
+        exclude_urls: Optional[List[str]] = None,
     ) -> dict:
         """Search for keywords and save results to database.
-
-        Ensures exactly `max_results` new results are saved per keyword,
-        skipping duplicates and continuing search with offset if needed.
 
         Args:
             keywords: List of search keywords.
             max_results: Number of new results to save per keyword.
             site_filter: Optional site filter (e.g., 'instagram.com').
             skip_existing: Skip URLs that already exist in database.
+            exclude_urls: List of domains to exclude
+                (e.g., ['instagram.com', 'wikipedia']).
 
         Returns:
-            Dict with statistics: {
-                'searched': int,
-                'found': int,
-                'new': int,
-                'skipped': int
-            }
+            Dict with statistics.
         """
-        stats = {"searched": 0, "found": 0, "new": 0, "skipped": 0}
+        stats = {"searched": 0, "found": 0, "new": 0, "skipped": 0, "excluded": 0}
+        exclude_urls = exclude_urls or []
+
+        def is_excluded(url: str) -> bool:
+            """Check if URL contains any excluded domain."""
+            domain = urlparse(url).netloc.lower()
+            return any(excluded in domain for excluded in exclude_urls)
 
         for keyword in keywords:
             stats["searched"] += 1
@@ -76,6 +78,11 @@ class SearchManager:
                 offset += batch_size
 
                 for result in results:
+                    # Check excluded domains
+                    if is_excluded(result.link):
+                        stats["excluded"] += 1
+                        continue
+
                     if skip_existing and self.db.exists(
                         "search_results", "link", result.link
                     ):
