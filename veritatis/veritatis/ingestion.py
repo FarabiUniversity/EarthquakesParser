@@ -9,19 +9,17 @@ to ``parsed_content.id`` in Supabase for full-text retrieval when needed.
 This module is used by both the FastAPI endpoint and the batch ingestion scripts.
 """
 
-import logging
 from dataclasses import dataclass
 from typing import Optional
 
 from veritatis.embeddings import embedding_generator
 from veritatis.vector_stores import (
+    ALL_TIER_COLLECTIONS,
     MilvusRecordStore,
     collection_for_tier,
     ensure_connection,
     init_collections,
 )
-
-logger = logging.getLogger(__name__)
 
 _store: Optional[MilvusRecordStore] = None
 
@@ -61,6 +59,7 @@ def ingest_record(
     date: int = 0,
     domain: str = "",
     store: Optional[MilvusRecordStore] = None,
+    flush: bool = True,
 ) -> IngestResult:
     """Ingest a single parsed_content record into the Milvus tier collection.
 
@@ -93,9 +92,12 @@ def ingest_record(
     store = store or get_store()
     target_collection = collection_for_tier(tier)
 
-    # Dedup: check if iid already exists
-    if store.record_exists(target_collection, iid):
-        return IngestResult(iid=iid, status="duplicate", collection=target_collection)
+    # Global dedup: prevent the same iid existing in multiple tier collections.
+    existing_collection = store.find_record_collection(
+        iid, collections=ALL_TIER_COLLECTIONS
+    )
+    if existing_collection:
+        return IngestResult(iid=iid, status="duplicate", collection=existing_collection)
 
     # Generate embedding from text (text itself is NOT stored in Milvus)
     normalized = " ".join(text.split()).strip()
@@ -109,5 +111,5 @@ def ingest_record(
         "domain": domain,
     }
 
-    store.insert_record(target_collection, record)
+    store.insert_record(target_collection, record, flush=flush)
     return IngestResult(iid=iid, status="inserted", collection=target_collection)

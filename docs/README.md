@@ -89,13 +89,18 @@ Check [Release Policy](RELEASE_POLICY.md) for:
 
 ```text
 docs/
-├── README.md              # This file
-├── QUICK_START.md         # 5-minute getting started
-├── PROJECT_STRUCTURE.md   # Architecture details
-├── CONTRIBUTING.md        # Developer guidelines
-├── RELEASE_POLICY.md      # Release process
-└── SETUP_COMPLETE.md      # Post-setup guide
+├── README.md                   # This file
+├── QUICK_START.md              # 5-minute getting started
+├── PROJECT_STRUCTURE.md        # Architecture details
+├── CONTRIBUTING.md             # Developer guidelines
+├── RELEASE_POLICY.md           # Release process
+├── SETUP_COMPLETE.md           # Post-setup guide
+└── VECTOR_CONSENSUS.md         # Векторный консенсус + CLI analyze_tier1 (veritatis)
 ```
+
+## Veritatis — Векторная система верификации
+
+- **[VECTOR_CONSENSUS.md](VECTOR_CONSENSUS.md)** — модуль консенсусного анализа: сравнение векторов между собой (без запроса), API эндпойнт `POST /consensus/analyze`, CLI `analyze_tier1.py`
 
 ## Additional Resources
 
