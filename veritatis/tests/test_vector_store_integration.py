@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -11,6 +11,9 @@ import veritatis.vector_stores as vs
 
 EMBED_DIM = 384
 ALMATY_TZ = timezone(timedelta(hours=5))
+
+# Track collections created by this module so we can clean them up.
+_CREATED_COLLECTIONS: set[str] = set()
 
 
 def _rand_id():
@@ -27,11 +30,53 @@ def _embedding():
 @pytest.fixture(scope="module", autouse=True)
 def _ensure_milvus():
     """Skip tests if Milvus is not reachable."""
-    # Ensure we can reach a real Milvus; skip if unavailable
     try:
         vs.ensure_connection()
     except Exception as e:
         pytest.skip(f"Milvus not available: {e}")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _drop_created_collections():
+    """Drop any collections created by this test module.
+
+    This keeps local Milvus state clean across test runs.
+    """
+    yield
+
+    # Best-effort cleanup: never fail the test run on teardown.
+    for name in sorted(_CREATED_COLLECTIONS):
+        try:
+            if vs.utility.has_collection(name):
+                vs.utility.drop_collection(name)
+        except Exception:
+            # Milvus may be down or collection may already be gone.
+            continue
+
+
+def _create_test_collection(name):
+    """Create a test collection with the veritatis schema (no tier field)."""
+    _CREATED_COLLECTIONS.add(name)
+    vs.create_collection_if_not_exists(
+        name,
+        fields=[
+            vs.FieldSchema(
+                name="iid", dtype=vs.DataType.VARCHAR, is_primary=True, max_length=64
+            ),
+            vs.FieldSchema(
+                name="embedding", dtype=vs.DataType.FLOAT_VECTOR, dim=EMBED_DIM
+            ),
+            vs.FieldSchema(name="credibility_score", dtype=vs.DataType.FLOAT),
+            vs.FieldSchema(name="date", dtype=vs.DataType.INT64),
+            vs.FieldSchema(name="domain", dtype=vs.DataType.VARCHAR, max_length=500),
+        ],
+        description="integration test",
+        index_params={
+            "index_type": "HNSW",
+            "metric_type": "COSINE",
+            "params": {"M": 8, "efConstruction": 32},
+        },
+    )
 
 
 def test_insert_and_exists_and_get():
@@ -39,108 +84,67 @@ def test_insert_and_exists_and_get():
     store = vs.MilvusRecordStore()
 
     name = f"it_single_{_rand_id()}"
-    vs.create_collection_if_not_exists(
-        name,
-        fields=[
-            vs.FieldSchema(
-                name="id", dtype=vs.DataType.VARCHAR, is_primary=True, max_length=100
-            ),
-            vs.FieldSchema(name="content", dtype=vs.DataType.VARCHAR, max_length=10000),
-            vs.FieldSchema(
-                name="embedding", dtype=vs.DataType.FLOAT_VECTOR, dim=EMBED_DIM
-            ),
-        ],
-        description="integration test",
-        index_params={
-            "index_type": "HNSW",
-            "metric_type": "IP",
-            "params": {"M": 8, "efConstruction": 32},
-        },
-    )
+    _create_test_collection(name)
 
     rid = _rand_id()
-    record = {"id": rid, "content": "Hello", "embedding": _embedding()}
+    record = {
+        "iid": rid,
+        "embedding": _embedding(),
+        "credibility_score": 0.0,
+        "date": 0,
+        "domain": "example.com",
+    }
     pks = store.insert_record(name, record)
     assert pks is not None and pks[0] == rid
     assert store.record_exists(name, rid) is True
     fetched = store.get_record(name, rid)
-    assert fetched["id"] == rid and len(fetched["embedding"]) == EMBED_DIM
-
-    out = Path("artifacts") / "milvus_store_integration_results.json"
-    out.parent.mkdir(exist_ok=True)
-    out.write_text(
-        json.dumps(
-            {
-                "test": "insert_exists_get",
-                "collection": name,
-                "id": rid,
-                "content": fetched["content"],
-                "embedding_dim": len(fetched["embedding"]),
-                "timestamp": datetime.now(ALMATY_TZ).isoformat(),
-            },
-            indent=2,
-        )
-    )
+    assert fetched["iid"] == rid and len(fetched["embedding"]) == EMBED_DIM
 
 
 def test_insert_batch_and_move():
-    """Insert a batch, then move one record between collections."""
+    """Insert a batch into one collection, then move a record to another."""
     store = vs.MilvusRecordStore()
 
-    src = f"it_src_{_rand_id()}"
-    dst = f"it_dst_{_rand_id()}"
-
-    for nm in (src, dst):
-        vs.create_collection_if_not_exists(
-            nm,
-            fields=[
-                vs.FieldSchema(
-                    name="id",
-                    dtype=vs.DataType.VARCHAR,
-                    is_primary=True,
-                    max_length=100,
-                ),
-                vs.FieldSchema(
-                    name="content", dtype=vs.DataType.VARCHAR, max_length=10000
-                ),
-                vs.FieldSchema(
-                    name="embedding", dtype=vs.DataType.FLOAT_VECTOR, dim=EMBED_DIM
-                ),
-            ],
-            description="integration test",
-            index_params={
-                "index_type": "HNSW",
-                "metric_type": "IP",
-                "params": {"M": 8, "efConstruction": 32},
-            },
-        )
+    src_name = f"it_src_{_rand_id()}"
+    tgt_name = f"it_tgt_{_rand_id()}"
+    _create_test_collection(src_name)
+    _create_test_collection(tgt_name)
 
     batch = []
     ids = []
     for i in range(3):
         rid = _rand_id()
         ids.append(rid)
-        batch.append({"id": rid, "content": f"Rec {i}", "embedding": _embedding()})
+        batch.append(
+            {
+                "iid": rid,
+                "embedding": _embedding(),
+                "credibility_score": 0.5 + i * 0.1,
+                "date": 0,
+                "domain": f"source{i}.com",
+            }
+        )
 
-    pks = store.insert_record(src, batch)
+    pks = store.insert_record(src_name, batch)
     assert pks == ids
 
-    to_move = ids[1]
-    ok = store.move_record(src, dst, to_move)
-    assert ok is True
-    # Note: In Milvus v2.2, deleted records may still appear in queries
-    # until compaction. So we verify the move succeeded by checking the
-    # destination, not absence from source.
-    assert store.record_exists(dst, to_move) is True
+    # Move second record from src to tgt
+    count = store.move_records(src_name, tgt_name, [ids[1]])
+    assert count == 1
 
-    out = Path("artifacts") / "milvus_store_integration_move.json"
+    # Verify it's gone from source and present in target
+    assert store.record_exists(src_name, ids[1]) is False
+    fetched = store.get_record(tgt_name, ids[1])
+    assert fetched is not None and fetched["iid"] == ids[1]
+
+    out = Path("artifacts") / "milvus_store_integration_tier.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(
         json.dumps(
             {
-                "moved_id": to_move,
-                "from": src,
-                "to": dst,
+                "moved_iid": ids[1],
+                "source": src_name,
+                "target": tgt_name,
             },
             indent=2,
         )

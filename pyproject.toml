@@ -39,6 +39,7 @@ dependencies = [
     "tavily-python>=0.7.22",
     "exa-py>=2.7.0",
     "duckduckgo-search>=8.1.1",
+    "matplotlib>=3.9.4",
 ]
 
 [project.optional-dependencies]
