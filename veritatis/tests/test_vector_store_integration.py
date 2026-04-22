@@ -1,9 +1,7 @@
 """Integration tests for the Milvus-backed vector store."""
 
-import json
 import uuid
 from datetime import timedelta, timezone
-from pathlib import Path
 
 import pytest
 
@@ -136,16 +134,3 @@ def test_insert_batch_and_move():
     assert store.record_exists(src_name, ids[1]) is False
     fetched = store.get_record(tgt_name, ids[1])
     assert fetched is not None and fetched["iid"] == ids[1]
-
-    out = Path("artifacts") / "milvus_store_integration_tier.json"
-    out.parent.mkdir(exist_ok=True)
-    out.write_text(
-        json.dumps(
-            {
-                "moved_iid": ids[1],
-                "source": src_name,
-                "target": tgt_name,
-            },
-            indent=2,
-        )
-    )
