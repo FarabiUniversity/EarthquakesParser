@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymilvus.orm import utility  # noqa: E402
 
+from veritatis.credibility import compute_credibility_scores
 from veritatis.ingestion import IngestResult, ingest_record, set_store
 from veritatis.similarity import SimilarityDetector  # noqa: E402
 from veritatis.vector_consensus import find_most_relevant_vector
@@ -314,6 +315,100 @@ async def consensus_analyze(
         response["move_error"] = move_error
 
     return response
+
+
+# --- Credibility score computation endpoint ---
+@app.post("/credibility/compute")
+async def compute_credibility(
+    similarity_threshold: float = Body(default=0.85),  # noqa: B008
+    min_group_size: int = Body(default=2),  # noqa: B008
+    centrality_weight: float = Body(default=0.6),  # noqa: B008
+    detail_weight: float = Body(default=0.4),  # noqa: B008
+    neutral_score: float = Body(default=0.5),  # noqa: B008
+    collection: str = Body(default=_TIER1),  # noqa: B008
+):
+    """
+    Compute and update credibility scores for all records in Tier 1.
+
+    This endpoint:
+    1. Finds groups of similar records using SimilarityDetector
+    2. Ranks records within each group using vector consensus analysis
+    3. Updates credibility_score in Milvus for all records
+    4. Assigns neutral_score (default 0.5) to records without groups
+
+    The credibility score is based on "consensus" - records that are similar
+    to many other records (more sources saying the same thing) receive higher
+    credibility scores.
+
+    Parameters:
+    - similarity_threshold: Minimum cosine similarity (0-1) to group records
+        (default: 0.85 - very high similarity)
+    - min_group_size: Minimum number of records to form a group (default: 2)
+    - centrality_weight: Weight for centrality score (how similar to others)
+        (default: 0.6)
+    - detail_weight: Weight for detail score (text length and quality)
+        (default: 0.4)
+    - neutral_score: Score assigned to records without similar neighbors
+        (default: 0.5 - neutral, no evidence either way)
+    - collection: Collection to process (default: tier1_lake)
+
+    Returns:
+    - Statistics about the computation including total records processed,
+      groups found, and number of records updated
+    """
+    if _store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store not initialized. Check Milvus connection.",
+        )
+
+    # Validate weights
+    if abs(centrality_weight + detail_weight - 1.0) > 1e-6:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "centrality_weight + detail_weight must equal 1.0, got "
+                f"{centrality_weight + detail_weight:.6f}"
+            ),
+        )
+
+    try:
+        logger.info(
+            f"Starting credibility score computation: "
+            f"collection={collection}, threshold={similarity_threshold}"
+        )
+
+        stats = compute_credibility_scores(
+            collection_name=collection,
+            similarity_threshold=similarity_threshold,
+            min_group_size=min_group_size,
+            centrality_weight=centrality_weight,
+            detail_weight=detail_weight,
+            neutral_score=neutral_score,
+        )
+
+        logger.info(
+            f"Credibility computation complete: "
+            f"{stats['updated_count']} records updated"
+        )
+
+        return {
+            "status": "success",
+            "message": (
+                f"Updated credibility scores for {stats['updated_count']} records"
+            ),
+            "stats": stats,
+        }
+
+    except Exception as e:
+        logger.error(f"Error computing credibility scores: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": f"Failed to compute credibility scores: {str(e)}",
+            },
+        )
 
 
 # --- Similarity detection endpoint ---

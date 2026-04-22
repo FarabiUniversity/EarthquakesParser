@@ -8,8 +8,8 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Upgrade pip tooling and install Python deps
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-	&& pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip setuptools wheel \
+	&& pip install -r requirements.txt
 
 # Pre-download the sentence-transformers model during build
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
