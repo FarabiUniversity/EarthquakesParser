@@ -106,6 +106,13 @@ earthquakes-parser/
 - **[Installation](../README.md#installation)** - Detailed installation instructions
 - **[Examples](../sandbox/)** - Code examples and experiments
 
+### Veritatis (Tier System)
+
+- **[Vector Consensus](VECTOR_CONSENSUS.md)** - Find most relevant vector by centrality and detail
+- **[Credibility Score](CREDIBILITY_SCORE.md)** - Consensus-based credibility computation
+- **[Supabase Architecture](SUPABASE_ARCHITECTURE.md)** - Database design and structure
+- **[Supabase Usage](SUPABASE_USAGE.md)** - Working with Supabase
+
 ### Development
 
 - **[Contributing Guidelines](CONTRIBUTING.md)** - How to contribute
