@@ -5,8 +5,8 @@ from typing import List, Optional
 
 from ddgs import DDGS
 
-from earthquakes_parser.search.base_searcher import BaseSearcher
-from earthquakes_parser.search.search_result import SearchResult
+from earthquakes_parser.search.backends.base_searcher import BaseSearcher
+from earthquakes_parser.search.backends.search_result import SearchResult
 
 
 class DDGSearcher(BaseSearcher):
