@@ -281,7 +281,7 @@ class TengriNewsParser:
 
     def _sleep(self) -> None:
         """Sleep a random interval between requests."""
-        time.sleep(random.uniform(self._min_delay, self._max_delay))
+        time.sleep(random.uniform(self._min_delay, self._max_delay))  # nosec B311
 
     # ------------------------------------------------------------------
     # Scraping logic
@@ -302,7 +302,9 @@ class TengriNewsParser:
         urls: List[str] = []
 
         for tag in soup.select(_LINK_SELECTOR):
-            href = tag.get("href", "")
+            raw = tag.get("href", "")
+            # bs4 can return list[str] for multi-valued attrs; take first element.
+            href: str = raw[0] if isinstance(raw, list) else str(raw)
             if href and _ARTICLE_PATH_RE.match(href):
                 full_url = urljoin(_BASE_URL, href)
                 if full_url not in urls:
