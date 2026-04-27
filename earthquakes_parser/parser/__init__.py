@@ -23,7 +23,10 @@ if TYPE_CHECKING:
     from earthquakes_parser.parser.parser_manager import ParserManager
     from earthquakes_parser.parser.schema_extractor import SchemaExtractor
     from earthquakes_parser.parser.schema_manager import SchemaManager
-    from earthquakes_parser.parser.tengrinews_parser import NewsArticle, TengriNewsParser
+    from earthquakes_parser.parser.tengrinews_parser import (
+        NewsArticle,
+        TengriNewsParser,
+    )
 
 __all__ = [
     "ContentParser",

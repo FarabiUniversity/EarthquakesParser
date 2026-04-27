@@ -33,8 +33,8 @@ _USER_AGENTS: List[str] = [
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) "
-    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15"
+    " (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (Android 14; Mobile; rv:125.0) Gecko/125.0 Firefox/125.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -60,19 +60,30 @@ _DATE_SELECTORS = [
 ]
 
 _BODY_SELECTORS = [
-    "div.content_main_text",          # has itemprop="articleBody"
+    "div.content_main_text",  # has itemprop="articleBody"
     "div[itemprop='articleBody']",
 ]
 
 # Russian month names → month number.
 _RU_MONTHS = {
-    "января": 1, "февраля": 2, "марта": 3, "апреля": 4,
-    "мая": 5, "июня": 6, "июля": 7, "августа": 8,
-    "сентября": 9, "октября": 10, "ноября": 11, "декабря": 12,
+    "января": 1,
+    "февраля": 2,
+    "марта": 3,
+    "апреля": 4,
+    "мая": 5,
+    "июня": 6,
+    "июля": 7,
+    "августа": 8,
+    "сентября": 9,
+    "октября": 10,
+    "ноября": 11,
+    "декабря": 12,
 }
 
 # Noise elements inside the article body that should be stripped before text extraction.
-_BODY_NOISE_SELECTORS = "script, style, .tn-inpage, .tn-discussed-now-block, .social-share, .tags"
+_BODY_NOISE_SELECTORS = (
+    "script, style, .tn-inpage, .tn-discussed-now-block, .social-share, .tags"
+)
 
 
 def _parse_ru_datetime(text: str) -> Optional[str]:
@@ -212,7 +223,9 @@ class TengriNewsParser:
     # HTTP helpers
     # ------------------------------------------------------------------
 
-    def _get(self, url: str, referer: Optional[str] = None) -> Optional[requests.Response]:
+    def _get(
+        self, url: str, referer: Optional[str] = None
+    ) -> Optional[requests.Response]:
         """GET *url* with retry logic and anti-blocking headers.
 
         Args:
@@ -255,7 +268,9 @@ class TengriNewsParser:
                 return None
 
             except requests.exceptions.Timeout:
-                logger.warning("Timeout on %s (attempt %d/%d).", url, attempt, self._max_retries)
+                logger.warning(
+                    "Timeout on %s (attempt %d/%d).", url, attempt, self._max_retries
+                )
                 time.sleep(3 * attempt)
 
             except requests.exceptions.RequestException as exc:
@@ -269,7 +284,7 @@ class TengriNewsParser:
     def _build_headers(referer: str) -> dict:
         """Return a dict of realistic browser headers with a random User-Agent."""
         return {
-            "User-Agent": random.choice(_USER_AGENTS),
+            "User-Agent": random.choice(_USER_AGENTS),  # nosec B311
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "ru-RU,ru;q=0.9,kk;q=0.8,en-US;q=0.7,en;q=0.5",
             "Accept-Encoding": "gzip, deflate, br",
