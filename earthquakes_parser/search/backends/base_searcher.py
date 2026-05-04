@@ -11,7 +11,7 @@ from typing import Iterator, List, Optional
 
 import pandas as pd
 
-from earthquakes_parser.search.search_result import SearchResult
+from earthquakes_parser.search.backends.search_result import SearchResult
 
 
 class BaseSearcher(ABC):

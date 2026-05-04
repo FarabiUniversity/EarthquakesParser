@@ -6,8 +6,8 @@ from typing import List, Optional
 
 import httpx
 
-from earthquakes_parser.search.base_searcher import BaseSearcher
-from earthquakes_parser.search.search_result import SearchResult
+from earthquakes_parser.search.backends.base_searcher import BaseSearcher
+from earthquakes_parser.search.backends.search_result import SearchResult
 
 
 class GoogleSearcher(BaseSearcher):
