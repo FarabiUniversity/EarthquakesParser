@@ -7,12 +7,18 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple
 
-import requests
-from bs4 import BeautifulSoup
+from earthquakes_parser.parser.kndc_bulletin_shared import LIST_URL as BULLETIN_LIST_URL
+from earthquakes_parser.parser.kndc_bulletin_shared import (
+    create_session,
+    fetch_listing,
+    latest_snapshot_for_event,
+    normalize_event,
+    save_snapshot,
+    snapshot_exists,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +31,7 @@ class KndcBulletinHourlyParser:
     new-record discovery, mirroring the `kndc_parser` flow.
     """
 
-    LIST_URL = "https://kndc.kz/kndc/pagecontent/alarm-bulletin/getOriginList.php"
+    LIST_URL = BULLETIN_LIST_URL
 
     def __init__(
         self,
@@ -38,130 +44,20 @@ class KndcBulletinHourlyParser:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.limit = int(limit)
         self.timeout = int(timeout)
-        self._session = requests.Session()
-        self._session.headers.update({"Accept": "application/json, */*"})
+        self._session = create_session()
         self._next_id_file = self.output_dir / "bulletin_next_id.txt"
 
     def _fetch_listing(self) -> List[Dict[str, Any]]:
-        params: Dict[str, str | int] = {
-            "orderby": "epochtime",
-            "desc": "yes",
-            "start": 0,
-            "limit": int(self.limit),
-        }
-        try:
-            resp = self._session.get(self.LIST_URL, params=params, timeout=self.timeout)
-            resp.raise_for_status()
-            data = self._parse_html_wrapped_json(resp.text)
-            if isinstance(data, list):
-                return [
-                    cast(Dict[str, Any], row) for row in data if isinstance(row, dict)
-                ]
-            if isinstance(data, dict):
-                items_obj: object = data.get("items", [])
-                if isinstance(items_obj, list):
-                    return [
-                        cast(Dict[str, Any], row)
-                        for row in items_obj
-                        if isinstance(row, dict)
-                    ]
-            return []
-        except Exception:
-            logger.exception("Failed to fetch bulletin listing")
-            return []
-
-    def _parse_html_wrapped_json(self, payload: str) -> object:
-        soup = BeautifulSoup(payload or "", "html.parser")
-        body = (
-            soup.body.get_text(strip=True) if soup.body else soup.get_text(strip=True)
+        return fetch_listing(
+            self._session,
+            limit=int(self.limit),
+            timeout=int(self.timeout),
+            desc=True,
+            start=0,
         )
-        if not body:
-            return []
-        parsed: object = json.loads(body)
-        return parsed
 
     def _normalize(self, event: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
-        depth_km = float(event.get("depth", 0.0))
-        parsed = {
-            "event_id": int(event.get("id", 0)),
-            "epoch_time": int(event.get("epochtime", 0)),
-            "occurred_at_utc": None,
-            "latitude": float(event.get("lat", 0.0)),
-            "longitude": float(event.get("lon", 0.0)),
-            "depth_km": depth_km,
-            "mb": float(event.get("mb", 0.0)) if event.get("mb") is not None else None,
-            "mpv": float(event.get("mpv", 0.0))
-            if event.get("mpv") is not None
-            else None,
-            "energy_class_k": float(event.get("class", 0.0))
-            if event.get("class") is not None
-            else None,
-            "geographic_region": event.get("gregion"),
-            "seismic_region": event.get("sregion"),
-            "quality": event.get("qual"),
-            "author": event.get("auth"),
-            "last_updated": event.get("lddate"),
-            "raw": event,
-        }
-        try:
-            evdate = event.get("evdate")
-            evtime = event.get("evtime")
-            if evdate and evtime:
-                parsed["occurred_at_utc"] = datetime.strptime(
-                    f"{evdate} {evtime}", "%Y-%m-%d %H:%M:%S"
-                )
-        except Exception:
-            parsed["occurred_at_utc"] = None
-
-        depth = depth_km
-        if depth < 70:
-            depth_description = "shallow earthquake"
-        elif depth < 300:
-            depth_description = "intermediate-depth earthquake"
-        else:
-            depth_description = "deep earthquake"
-
-        enriched_text = f"""
-Official earthquake bulletin from KNDC.
-
-Event ID: {parsed['event_id']}
-
-Date and time (UTC):
-{parsed['occurred_at_utc']}
-
-Geographic region:
-{parsed['geographic_region']}
-
-Seismic region:
-{parsed['seismic_region']}
-
-Coordinates:
-Latitude {parsed['latitude']}
-Longitude {parsed['longitude']}
-
-Depth:
-{parsed['depth_km']} km
-
-This was an {depth_description}.
-
-Magnitude scales:
-mb = {parsed['mb']}
-mpv = {parsed['mpv']}
-
-Energy class K:
-{parsed['energy_class_k']}
-
-Source author:
-{parsed['author']}
-
-Quality classification:
-{parsed['quality']}
-
-Last official update:
-{parsed['last_updated']}
-""".strip()
-
-        return parsed, enriched_text
+        return normalize_event(event)
 
     def _load_next_id(self) -> int:
         if not self._next_id_file.exists():
@@ -204,32 +100,13 @@ Last official update:
     def _save_snapshot(
         self, event_id: int, parsed: Dict[str, Any], enriched_text: str
     ) -> Path:
-        if self._snapshot_exists(event_id):
-            logger.info("Skipping duplicate bulletin event_id=%d", event_id)
-            existing = self._latest_snapshot_for_event(event_id)
-            assert existing is not None
-            return existing
-
-        ts = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
-        name = f"kndc_bulletin_{event_id}_{ts}.json"
-        out = self.output_dir / name
-        payload = {
-            "parsed": parsed,
-            "enriched_text": enriched_text,
-            "raw": parsed.get("raw"),
-        }
-        with out.open("w", encoding="utf-8") as fh:
-            json.dump(payload, fh, ensure_ascii=False, indent=2, default=str)
-        return out
+        return save_snapshot(self.output_dir, event_id, parsed, enriched_text)
 
     def _snapshot_exists(self, event_id: int) -> bool:
-        return self._latest_snapshot_for_event(event_id) is not None
+        return snapshot_exists(self.output_dir, event_id)
 
     def _latest_snapshot_for_event(self, event_id: int) -> Optional[Path]:
-        matches = sorted(self.output_dir.glob(f"kndc_bulletin_{int(event_id)}_*.json"))
-        if not matches:
-            return None
-        return matches[-1]
+        return latest_snapshot_for_event(self.output_dir, event_id)
 
     def run_once(self, max_per_run: int = 25) -> int:
         """Fetch the latest bulletin listing once and save new snapshots."""
