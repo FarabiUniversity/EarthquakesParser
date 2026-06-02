@@ -59,6 +59,31 @@ class KndcBulletinHourlyParser:
     def _normalize(self, event: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
         return normalize_event(event)
 
+    @staticmethod
+    def _parse_event_id(value: Any) -> Optional[int]:
+        try:
+            eid = int(value)
+        except (TypeError, ValueError):
+            return None
+        return eid if eid > 0 else None
+
+    def _read_snapshot_event_id(self, path: Path) -> Optional[int]:
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                payload = json.load(fh)
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.debug("Skipping unreadable snapshot %s: %s", path, exc)
+            return None
+
+        if not isinstance(payload, dict):
+            return None
+
+        parsed = payload.get("parsed", {})
+        if not isinstance(parsed, dict):
+            return None
+
+        return self._parse_event_id(parsed.get("event_id"))
+
     def _load_next_id(self) -> int:
         if not self._next_id_file.exists():
             bootstrapped = self._bootstrap_next_id_from_snapshots()
@@ -79,15 +104,11 @@ class KndcBulletinHourlyParser:
     def _bootstrap_next_id_from_snapshots(self) -> Optional[int]:
         max_event_id: Optional[int] = None
         for path in self.output_dir.glob("kndc_bulletin_*.json"):
-            try:
-                with path.open("r", encoding="utf-8") as fh:
-                    payload = json.load(fh)
-                parsed = payload.get("parsed", {}) if isinstance(payload, dict) else {}
-                event_id = int(parsed.get("event_id", 0))
-                if event_id > 0 and (max_event_id is None or event_id > max_event_id):
-                    max_event_id = event_id
-            except Exception:
+            event_id = self._read_snapshot_event_id(path)
+            if event_id is None:
                 continue
+            if max_event_id is None or event_id > max_event_id:
+                max_event_id = event_id
 
         if max_event_id is None:
             return None
@@ -127,9 +148,11 @@ class KndcBulletinHourlyParser:
                 break
             probes += 1
 
-            try:
-                eid = int(event.get("id", 0))
-            except Exception:
+            eid = self._parse_event_id(event.get("id"))
+            if eid is None:
+                logger.debug(
+                    "Skipping listing row with invalid id: %s", event.get("id")
+                )
                 continue
 
             if eid < next_id:

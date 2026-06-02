@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
-import random
+import secrets
 import time
 import unicodedata
 from dataclasses import dataclass
@@ -108,9 +108,17 @@ class KndcParser:
 
     def _build_headers(self) -> Dict[str, str]:
         return {
-            "User-Agent": random.choice(_USER_AGENTS),
+            "User-Agent": secrets.choice(_USER_AGENTS),
             "X-Requested-With": "XMLHttpRequest",
         }
+
+    @staticmethod
+    def _delay_seconds(min_delay: float, max_delay: float) -> float:
+        if max_delay <= min_delay:
+            return max(min_delay, 0.0)
+        span = max_delay - min_delay
+        jitter = secrets.randbelow(1_000_000) / 1_000_000
+        return min_delay + (span * jitter)
 
     def _get(self, params: Dict[str, Any]) -> Optional[requests.Response]:
         headers = self._build_headers()
@@ -228,7 +236,7 @@ class KndcParser:
                     logger.info("Saved %s", p)
             else:
                 logger.debug("Skipping empty KNDC newsid=%s", nid)
-            time.sleep(random.uniform(self._min_delay, self._max_delay))
+            time.sleep(self._delay_seconds(self._min_delay, self._max_delay))
         return out
 
 

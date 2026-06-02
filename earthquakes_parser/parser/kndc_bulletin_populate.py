@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-import random
+import secrets
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -61,6 +61,22 @@ class KndcBulletinPopulator:
     def _normalize(self, event: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
         return normalize_event(event)
 
+    @staticmethod
+    def _parse_event_id(value: Any) -> Optional[int]:
+        try:
+            eid = int(value)
+        except (TypeError, ValueError):
+            return None
+        return eid if eid > 0 else None
+
+    @staticmethod
+    def _delay_seconds(min_delay: float, max_delay: float) -> float:
+        if max_delay <= min_delay:
+            return max(min_delay, 0.0)
+        span = max_delay - min_delay
+        jitter = secrets.randbelow(1_000_000) / 1_000_000
+        return min_delay + (span * jitter)
+
     def _save_snapshot(
         self, event_id: int, parsed: Dict[str, Any], enriched_text: str
     ) -> Path:
@@ -87,9 +103,11 @@ class KndcBulletinPopulator:
 
             # Listing is expected in ascending epochtime when desc=False
             for event in listing:
-                try:
-                    eid = int(event.get("id", 0))
-                except Exception:
+                eid = self._parse_event_id(event.get("id"))
+                if eid is None:
+                    logger.debug(
+                        "Skipping listing row with invalid id: %s", event.get("id")
+                    )
                     continue
                 if self._snapshot_exists(eid):
                     logger.info("Skipping duplicate bulletin event_id=%d", eid)
@@ -99,7 +117,7 @@ class KndcBulletinPopulator:
                 p = self._save_snapshot(eid, parsed, enriched)
                 logger.info("Saved bulletin snapshot %s", p)
                 processed += 1
-                time.sleep(random.uniform(0.01, 0.1))
+                time.sleep(self._delay_seconds(0.01, 0.1))
 
             start += len(listing)
             if len(listing) < self.limit:

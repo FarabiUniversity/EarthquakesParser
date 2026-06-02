@@ -12,7 +12,7 @@ python -m earthquakes_parser.parser.kndc_scheduler --interval 3600
 from __future__ import annotations
 
 import logging
-import random
+import secrets
 import time
 from pathlib import Path
 from typing import List, Set
@@ -25,6 +25,14 @@ logger = logging.getLogger(__name__)
 
 SEEN_FILE = Path("data/kndc/seen_ids.txt")
 NEXT_ID_FILE = Path("data/kndc/next_id.txt")
+
+
+def _delay_seconds(min_delay: float, max_delay: float) -> float:
+    if max_delay <= min_delay:
+        return max(min_delay, 0.0)
+    span = max_delay - min_delay
+    jitter = secrets.randbelow(1_000_000) / 1_000_000
+    return min_delay + (span * jitter)
 
 
 def load_seen() -> Set[int]:
@@ -86,7 +94,7 @@ def probe_new_ids(
             found.append((nid, rec))
             logger.debug("Found newsid %d", nid)
 
-        time.sleep(random.uniform(parser.min_delay, parser.max_delay))
+        time.sleep(_delay_seconds(parser.min_delay, parser.max_delay))
 
         nid += 1
 
