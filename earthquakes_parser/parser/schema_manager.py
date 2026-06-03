@@ -1,4 +1,5 @@
 """Schema management in database."""
+
 import json
 from typing import Optional
 

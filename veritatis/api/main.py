@@ -1,4 +1,4 @@
-"""Main entry point for the veritatis API using FastAPI with relevance filtering."""
+"""Main entry point for the veritatis API."""
 
 import logging
 import time
@@ -10,9 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymilvus.orm import utility  # noqa: E402
 
+from veritatis.credibility import compute_credibility_scores
 from veritatis.ingestion import IngestResult, ingest_record, set_store
-from veritatis.plain_search import vector_search
-from veritatis.search import RelevanceFilter, search_with_relevance_filter
+from veritatis.similarity import SimilarityDetector  # noqa: E402
+from veritatis.vector_consensus import find_most_relevant_vector
 from veritatis.vector_stores import (
     MilvusRecordStore,
     collection_for_tier,
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 # Module-level store reference (used by /move and /update_credibility)
 _store: Optional[MilvusRecordStore] = None
+_TIER1 = ""
 
 
 @asynccontextmanager
@@ -191,79 +193,389 @@ async def update_credibility(
     return {"updated": count, "collection": col}
 
 
-# --- Vector search endpoint (legacy - no filtering) ---
-@app.post("/search")
-async def search(
-    query: str = Body(..., embed=True),  # noqa: B008
-    top_k: int = Body(default=10),  # noqa: B008
-    tier: Optional[int] = Body(default=None),  # noqa: B008
+_TIER1 = "veritatis_tier1_lake"
+_TIER2 = "veritatis_tier2_arena"
+
+
+# --- Consensus analysis endpoint ---
+@app.post("/consensus/analyze")
+async def consensus_analyze(
+    limit: Optional[int] = Body(default=None),  # noqa: B008
+    top_n: int = Body(default=10),  # noqa: B008
+    threshold: float = Body(default=0.7),  # noqa: B008
+    centrality_weight: float = Body(default=0.6),  # noqa: B008
+    detail_weight: float = Body(default=0.4),  # noqa: B008
+    credibility_weight: float = Body(default=0.0),  # noqa: B008
 ):
-    """Run a vector similarity search with no relevance filtering.
+    """Analyze Tier 1 vectors and promote the best to Tier 2.
 
-    ``tier`` selects which collection to search (1, 2, or 3).
-    When ``None``, all tier collections are searched.
+    Compares all vectors against each other (no query needed) using centrality,
+    detail, and credibility scores. The vector with the highest combined_score
+    is always moved to Tier 2.
+
+    Parameters:
+    - limit: max number of vectors to analyze (None = all)
+    - top_n: how many top results to include in the response
+    - threshold: score threshold used only for reporting (above_threshold_count)
+    - centrality_weight: weight for centrality score (default 0.6)
+    - detail_weight: weight for detail score (default 0.4)
+    - credibility_weight: weight for credibility score (default 0.0)
+
+    All three weights must sum to 1.0.
     """
-    try:
-        hits = vector_search(query, top_k=top_k, tier=tier)
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-    return {"query": query, "top_k": top_k, "results": hits}
-
-
-# Smart search with relevance filtering
-@app.post("/search/relevant")
-async def search_relevant(
-    query: str = Body(..., embed=True),  # noqa: B008
-    top_k: int = Body(default=10),  # noqa: B008
-    relevance_threshold: Optional[float] = Body(default=None),  # noqa: B008
-    use_adaptive_threshold: bool = Body(default=False),  # noqa: B008
-    tier: Optional[int] = Body(default=None),  # noqa: B008
-):
-    """Run vector search with automatic relevance filtering.
-
-    ``tier`` selects which collection to search (1, 2, or 3).
-    When ``None``, all tier collections are searched.
-    """
-    try:
-        return search_with_relevance_filter(
-            query=query,
-            top_k=top_k,
-            relevance_threshold=relevance_threshold,
-            use_adaptive_threshold=use_adaptive_threshold,
-            tier=tier,
+    if _store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store not initialized. Check Milvus connection.",
         )
+
+    if abs(centrality_weight + detail_weight + credibility_weight - 1.0) > 1e-6:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "centrality_weight + detail_weight + credibility_weight "
+                "must equal 1.0, got "
+                f"{centrality_weight + detail_weight + credibility_weight:.6f}"
+            ),
+        )
+
+    try:
+        best, all_ranked = find_most_relevant_vector(
+            collection_name=_TIER1,
+            centrality_weight=centrality_weight,
+            detail_weight=detail_weight,
+            credibility_weight=credibility_weight,
+            limit=limit,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Search error: {e}")
+        logger.error(f"Consensus analysis error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-
-# --- Strict relevance search ---
-@app.post("/search/strict")
-async def search_strict(
-    query: str = Body(..., embed=True),  # noqa: B008
-    top_k: int = Body(default=10),  # noqa: B008
-    tier: Optional[int] = Body(default=None),  # noqa: B008
-):
-    """Search with strict relevance filtering (threshold=0.7).
-
-    ``tier`` selects which collection to search (1, 2, or 3).
-    When ``None``, all tier collections are searched.
-    """
+    # Move best vector to Tier 2 (same schema across tiers)
+    moved = False
+    move_error: Optional[str] = None
     try:
-        response = search_with_relevance_filter(
-            query=query,
-            top_k=top_k,
-            relevance_threshold=RelevanceFilter.STRICT_THRESHOLD,
-            tier=tier,
-        )
-        return {
-            "query": query,
-            "threshold": response["threshold"],
-            "results": response["relevant_results"],
-            "filtered_count": response["irrelevant_count"],
+        moved_count = _store.move_records(_TIER1, _TIER2, [best.iid])
+        moved = moved_count == 1
+        if moved:
+            logger.info(f"Moved best vector {best.iid} from Tier 1 to Tier 2")
+        else:
+            move_error = "Record was not found in Tier 1 (already moved?)"
+    except Exception as e:
+        move_error = str(e)
+        logger.error(f"Failed to move vector {best.iid} to Tier 2: {e}")
+
+    # Build stats
+    scores = [v.combined_score for v in all_ranked]
+    centralities = [v.centrality_score for v in all_ranked]
+    details = [v.detail_score for v in all_ranked]
+    n = len(scores)
+
+    top_list: List[Dict[str, Any]] = [
+        {
+            "rank": i + 1,
+            "iid": v.iid,
+            "combined_score": round(v.combined_score, 4),
+            "centrality_score": round(v.centrality_score, 4),
+            "detail_score": round(v.detail_score, 4),
+            "main_text_length": v.main_text_length,
         }
+        for i, v in enumerate(all_ranked[:top_n])
+    ]
+
+    response: Dict[str, Any] = {
+        "analyzed_count": n,
+        "best_vector": {
+            "iid": best.iid,
+            "main_text": best.main_text,
+            "credibility_score": best.credibility_score,
+            "date": best.date,
+            "domain": best.domain,
+            "centrality_score": round(best.centrality_score, 4),
+            "detail_score": round(best.detail_score, 4),
+            "combined_score": round(best.combined_score, 4),
+            "main_text_length": best.main_text_length,
+        },
+        "moved_to_tier2": moved,
+        "top_n": top_list,
+        "stats": {
+            "avg_combined_score": round(sum(scores) / n, 4),
+            "min_combined_score": round(min(scores), 4),
+            "max_combined_score": round(max(scores), 4),
+            "avg_centrality_score": round(sum(centralities) / n, 4),
+            "avg_detail_score": round(sum(details) / n, 4),
+            "above_threshold_count": sum(1 for s in scores if s >= threshold),
+            "threshold_used": threshold,
+        },
+    }
+
+    if move_error is not None:
+        response["move_error"] = move_error
+
+    return response
+
+
+# --- Credibility score computation endpoint ---
+@app.post("/credibility/compute")
+async def compute_credibility(
+    similarity_threshold: float = Body(default=0.85),  # noqa: B008
+    min_group_size: int = Body(default=2),  # noqa: B008
+    centrality_weight: float = Body(default=0.6),  # noqa: B008
+    detail_weight: float = Body(default=0.4),  # noqa: B008
+    neutral_score: float = Body(default=0.5),  # noqa: B008
+    collection: str = Body(default=_TIER1),  # noqa: B008
+):
+    """
+    Compute and update credibility scores for all records in Tier 1.
+
+    This endpoint:
+    1. Finds groups of similar records using SimilarityDetector
+    2. Ranks records within each group using vector consensus analysis
+    3. Updates credibility_score in Milvus for all records
+    4. Assigns neutral_score (default 0.5) to records without groups
+
+    The credibility score is based on "consensus" - records that are similar
+    to many other records (more sources saying the same thing) receive higher
+    credibility scores.
+
+    Parameters:
+    - similarity_threshold: Minimum cosine similarity (0-1) to group records
+        (default: 0.85 - very high similarity)
+    - min_group_size: Minimum number of records to form a group (default: 2)
+    - centrality_weight: Weight for centrality score (how similar to others)
+        (default: 0.6)
+    - detail_weight: Weight for detail score (text length and quality)
+        (default: 0.4)
+    - neutral_score: Score assigned to records without similar neighbors
+        (default: 0.5 - neutral, no evidence either way)
+    - collection: Collection to process (default: tier1_lake)
+
+    Returns:
+    - Statistics about the computation including total records processed,
+      groups found, and number of records updated
+    """
+    if _store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store not initialized. Check Milvus connection.",
+        )
+
+    # Validate weights
+    if abs(centrality_weight + detail_weight - 1.0) > 1e-6:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "centrality_weight + detail_weight must equal 1.0, got "
+                f"{centrality_weight + detail_weight:.6f}"
+            ),
+        )
+
+    try:
+        logger.info(
+            f"Starting credibility score computation: "
+            f"collection={collection}, threshold={similarity_threshold}"
+        )
+
+        stats = compute_credibility_scores(
+            collection_name=collection,
+            similarity_threshold=similarity_threshold,
+            min_group_size=min_group_size,
+            centrality_weight=centrality_weight,
+            detail_weight=detail_weight,
+            neutral_score=neutral_score,
+        )
+
+        logger.info(
+            f"Credibility computation complete: "
+            f"{stats['updated_count']} records updated"
+        )
+
+        return {
+            "status": "success",
+            "message": (
+                f"Updated credibility scores for {stats['updated_count']} records"
+            ),
+            "stats": stats,
+        }
+
     except Exception as e:
-        logger.error(f"Strict search error: {e}")
+        logger.error(f"Error computing credibility scores: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "message": f"Failed to compute credibility scores: {str(e)}",
+            },
+        )
+
+
+# --- Similarity detection endpoint ---
+@app.post("/similarity/detect")
+async def detect_similar_groups(
+    similarity_threshold: float = Body(default=0.85),  # noqa: B008
+    min_group_size: int = Body(default=2),  # noqa: B008
+    max_groups: Optional[int] = Body(default=None),  # noqa: B008
+    collection: str = Body(default=_TIER1),  # noqa: B008
+):
+    """
+    Detect groups of similar embeddings in Tier 1.
+
+    This endpoint finds semantically similar content that can be consolidated.
+    Your colleague's summarization function will be called for each group.
+
+    Parameters:
+    - similarity_threshold: Minimum cosine similarity (0-1) to group
+        records (default: 0.85)
+    - min_group_size: Minimum number of similar records to form a group
+        (default: 2)
+    - max_groups: Maximum number of groups to return
+        (default: unlimited)
+    - collection: Collection to search (default: tier1_lake)
+
+    Returns:
+    - List of similarity groups with metadata
+    - Each group contains anchor record and similar records
+    """
+    if _store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store not initialized. Check Milvus connection.",
+        )
+
+    try:
+        # Initialize similarity detector
+        detector = SimilarityDetector(
+            collection_name=collection,
+            similarity_threshold=similarity_threshold,
+            min_group_size=min_group_size,
+            max_search_results=50,  # Search up to 50 similar records per anchor
+        )
+
+        # Find similarity groups
+        logger.info(
+            f"Starting similarity detection: threshold={similarity_threshold}, "
+            f"min_size={min_group_size}"
+        )
+
+        groups = detector.find_similar_groups(limit=max_groups, skip_processed=True)
+
+        # Format response
+        response = {
+            "collection": collection,
+            "similarity_threshold": similarity_threshold,
+            "min_group_size": min_group_size,
+            "groups_found": len(groups),
+            "total_records_in_groups": sum(g.group_size for g in groups),
+            "groups": [
+                {
+                    "anchor_id": g.anchor_id,
+                    "anchor_content": g.anchor_content[:200]
+                    + "...",  # Truncate for display
+                    "group_size": g.group_size,
+                    "similar_record_ids": [r["id"] for r in g.similar_records],
+                    "similarity_scores": [
+                        r["similarity_score"] for r in g.similar_records
+                    ],
+                }
+                for g in groups
+            ],
+        }
+
+        logger.info(
+            f"Similarity detection complete: found {len(groups)} groups "
+            f"with {response['total_records_in_groups']} total records"
+        )
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Error detecting similar groups: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/similarity/process")
+async def process_similar_groups(
+    similarity_threshold: float = Body(default=0.85),  # noqa: B008
+    min_group_size: int = Body(default=2),  # noqa: B008
+    max_groups: Optional[int] = Body(default=10),  # noqa: B008
+    collection: str = Body(default=_TIER1),  # noqa: B008
+):
+    """
+    Process similarity groups with summarization callback.
+
+    This endpoint:
+    1. Finds groups of similar records
+    2. Calls a summarization function (TODO: integrate your colleague's function)
+    3. Optionally moves summarized content to Tier 2
+
+    NOTE: Currently returns similarity groups WITHOUT summarization.
+    Your colleague should integrate their summarization function here.
+
+    Parameters:
+    - similarity_threshold: Minimum cosine similarity (0-1)
+    - min_group_size: Minimum group size
+    - max_groups: Maximum groups to process
+    - collection: Collection to search
+
+    Returns:
+    - Processing results for each group
+    """
+    if _store is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store not initialized. Check Milvus connection.",
+        )
+
+    try:
+        # Initialize similarity detector
+        detector = SimilarityDetector(
+            collection_name=collection,
+            similarity_threshold=similarity_threshold,
+            min_group_size=min_group_size,
+        )
+
+        # Find similarity groups
+        groups = detector.find_similar_groups(limit=max_groups, skip_processed=True)
+
+        if not groups:
+            return {
+                "status": "no_groups_found",
+                "message": "No similarity groups found matching criteria",
+                "groups_processed": 0,
+            }
+
+        # TODO: Replace this placeholder with your colleague's summarization function
+        def placeholder_summarization(contents: list[str]) -> dict[str, Any]:
+            """Implement real summarization here."""
+            return {
+                "summary": f"Summary of {len(contents)} similar records (placeholder)",
+                "confidence": 0.0,
+                "note": "Replace this with real LLM summarization",
+            }
+
+        # Process groups with summarization callback
+        # Your colleague should replace placeholder_summarization with their function
+        results = detector.process_similarity_groups_batch(
+            groups=groups,
+            summarization_callback=placeholder_summarization,
+            tier2_insertion_callback=None,  # TODO: Add Tier 2 insertion logic
+        )
+
+        return {
+            "status": "processed",
+            "groups_found": len(groups),
+            "groups_processed": len(results),
+            "results": results,
+            "note": (
+                "Summarization is currently a placeholder. "
+                "Integrate your colleague's function to enable real summarization."
+            ),
+        }
+
+    except Exception as e:
+        logger.error(f"Error processing similar groups: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 

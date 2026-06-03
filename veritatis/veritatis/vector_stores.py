@@ -4,7 +4,7 @@ import logging
 import math
 import os
 import time
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 from dotenv import load_dotenv
 from pymilvus import (  # noqa: E402
@@ -33,9 +33,9 @@ MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
 MILVUS_PORT = int(os.getenv("MILVUS_PORT", "19530"))
 
 # One collection per credibility tier.
-TIER1_COLLECTION = "veritatis_tier1"  # raw / unverified
-TIER2_COLLECTION = "veritatis_tier2"  # credible (score > 0.7)
-TIER3_COLLECTION = "veritatis_tier3"  # verified
+TIER1_COLLECTION = "veritatis_tier1_lake"  # raw / unverified
+TIER2_COLLECTION = "veritatis_tier2_arena"  # credible (score > 0.7)
+TIER3_COLLECTION = "veritatis_tier3_sanctum"  # verified
 
 ALL_TIER_COLLECTIONS = [TIER1_COLLECTION, TIER2_COLLECTION, TIER3_COLLECTION]
 
@@ -231,6 +231,7 @@ def ensure_collection_loaded(collection_name: str) -> None:
     Loads collection if not already loaded for insert/search operations.
     """
     try:
+        ensure_connection()
         load_state = utility.load_state(collection_name)
         if load_state == LoadState.Loaded:
             return  # Already loaded
@@ -282,6 +283,8 @@ class MilvusRecordStore:
         self,
         collection_name: str,
         record: Union[Dict[str, Any], List[Dict[str, Any]]],
+        *,
+        flush: bool = True,
     ):
         """Insert one or more records into the given collection.
 
@@ -312,12 +315,16 @@ class MilvusRecordStore:
             data_columns.append(column)
 
         res = collection.insert(data_columns)
-        collection.flush()  # Ensure data is persisted and available for queries
-        print(
-            f"Inserted {len(rows)} record(s) into {collection_name}; "
-            f"primary_keys={getattr(res, 'primary_keys', None)}"
-        )
+
+        if flush:
+            collection.flush()  # Ensure data is persisted and available for queries
         return getattr(res, "primary_keys", None)
+
+    def flush_collection(self, collection_name: str) -> None:
+        """Flush a collection so inserts are persisted and queryable."""
+        ensure_collection_loaded(collection_name)
+        collection = Collection(collection_name)
+        collection.flush()
 
     def record_exists(self, collection_name: str, record_iid: str) -> bool:
         """Return True if a record with primary key iid exists in the collection."""
@@ -327,6 +334,21 @@ class MilvusRecordStore:
             expr=f'iid in ["{record_iid}"]', output_fields=["iid"]
         )
         return len(results) > 0
+
+    def find_record_collection(
+        self, record_iid: str, *, collections: Optional[Sequence[str]] = None
+    ) -> Optional[str]:
+        """Return the first collection that contains the given iid.
+
+        Defaults to searching across all Veritatis tier collections.
+        """
+        collections_to_check = (
+            list(collections) if collections is not None else ALL_TIER_COLLECTIONS
+        )
+        for name in collections_to_check:
+            if self.record_exists(name, record_iid):
+                return name
+        return None
 
     def delete_record(self, collection_name: str, record_iid: str):
         """Delete a record from a collection."""
@@ -367,23 +389,36 @@ class MilvusRecordStore:
         ensure_collection_loaded(target_collection)
 
         src = Collection(source_collection)
+        tgt = Collection(target_collection)
         iid_list = ", ".join(f'"{iid}"' for iid in iids)
+
         field_names = [f.name for f in src.schema.fields]
         records = src.query(expr=f"iid in [{iid_list}]", output_fields=field_names)
         if not records:
             return 0
+
+        # If any iid already exists in the target, treat this as a tier de-dup:
+        # delete from source but do not re-insert into target.
+        existing_in_target = tgt.query(
+            expr=f"iid in [{iid_list}]", output_fields=["iid"]
+        )
+        existing_iids = {r["iid"] for r in existing_in_target}
+        to_insert = [r for r in records if r.get("iid") not in existing_iids]
 
         # Delete from source
         src.delete(expr=f"iid in [{iid_list}]")
         src.flush()
         time.sleep(0.1)
 
-        # Insert into target
-        tgt = Collection(target_collection)
-        tgt_field_names = [f.name for f in tgt.schema.fields]
-        data_columns = [[r[name] for r in records] for name in tgt_field_names]
-        tgt.insert(data_columns)
-        tgt.flush()
+        # Insert into target (only those not already present)
+        if to_insert:
+            tgt_field_names = [f.name for f in tgt.schema.fields]
+            data_columns = [[r[name] for r in to_insert] for name in tgt_field_names]
+            tgt.insert(data_columns)
+            tgt.flush()
+
+        # "moved" means removed from source;
+        # some iids may have already existed in target.
         return len(records)
 
     def update_credibility_scores(

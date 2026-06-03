@@ -30,12 +30,15 @@ Optional args:
 from __future__ import annotations
 
 import argparse
+import multiprocessing as mp
 import os
 import time
 
 from veritatis.ingest_parsed_content import BATCH_SIZE as DEFAULT_BATCH_SIZE
 from veritatis.ingest_parsed_content import SLEEP_BETWEEN_BATCHES as DEFAULT_SLEEP
 from veritatis.ingest_parsed_content import fetch_parsed_content, send_to_ingest
+
+os.environ.setdefault("GRPC_VERBOSITY", "NONE")
 
 
 def parse_args() -> argparse.Namespace:
@@ -111,4 +114,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # gRPC (used by pymilvus) is not fork-safe once background threads exist.
+    # Using the 'spawn' start method avoids fork-related warnings and can prevent
+    # rare deadlocks if multiprocessing is introduced.
+    try:
+        if mp.get_start_method(allow_none=True) != "spawn":
+            mp.set_start_method("spawn")
+    except RuntimeError:
+        # Start method already set by the runtime; leave as-is.
+        pass
     main()
