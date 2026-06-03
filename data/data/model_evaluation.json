@@ -1,0 +1,3070 @@
+{
+  "models": {
+    "gemma": {
+      "total_links": 20,
+      "success_count": 17,
+      "success_rate": 0.85,
+      "extraction_accuracy_avg": 0.924,
+      "gpt_quality_avg": 0.64,
+      "final_score": 80.91,
+      "details": [
+        {
+          "url": "https://dknews.kz/ru/eksklyuziv-dk/376856-pochemu-almaty-prodolzhaet-verit-sluham-o",
+          "domain": "dknews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 9174,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.9,
+            "confidence": 0.85,
+            "reason": {
+              "description": "The selectors capture almost all of the article body and the publication date accurately. The main text selector `.postBody .text` pulls in the entire content container, which includes an ad placeholder (`<div class=\"rm1\">`) that is not part of the article. Additionally, there is a single empty `<p>` element inside the text block that adds negligible noise. No selectors target wrong elements or rely on fragile structures such as nth‑child or hard‑coded IDs.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8.5,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "recall": {
+                  "score": 9.0,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9.5,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 2,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Ad placeholder `<div class=\"rm1\">` inside `.postBody .text`",
+                    "Empty paragraph `<p data-start=\"872\" data-end=\"1263\"></p>`"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.5,
+            "date_quality": 10.0,
+            "issues": [
+              "Empty paragraph causing noise",
+              "Ad placeholder inside main text div"
+            ],
+            "suggestions": "Use a more selective selector such as `.postBody .text > *:not(.rm1)` or filter out empty `<p>` elements in the extraction logic to avoid capturing non‑article content."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/zemletryasenie-proizoshlo-v-46-kilometrah-ot-almatyi-590074/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2607,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 9.5,
+            "confidence": 0.95,
+            "reason": {
+              "description": "The selector `.content_main_text` accurately captures the article body without any navigation or advertisement elements, and the meta tag `meta[itemprop='datePublished']` exists in the DOM with the correct timestamp. The only minor issue is that `.content_main_inner` also pulls in a share‑button element, which is negligible noise.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Share button inside `.content_main_inner`"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 10,
+            "date_quality": 10,
+            "issues": [
+              "`.content_main_inner` selector captures a share button element, adding minimal noise to the extracted content."
+            ],
+            "suggestions": "Prefer using `.content_main_text` for article body extraction and filter out any non‑text elements. For the date, use `meta[itemprop='datePublished']::attr(content)` to retrieve the timestamp directly."
+          }
+        },
+        {
+          "url": "https://voshod-solnca.ru/earthquake/%D0%B0%D0%BB%D0%BC%D0%B0%D1%82%D1%8B",
+          "domain": "voshod-solnca.ru",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2184,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 3.0,
+            "confidence": 0.6,
+            "reason": {
+              "description": "The provided selectors capture only a small fragment of the page (the headline), navigation links, loading spinners and advertisement blocks while missing the bulk of the earthquake data tables that constitute the main content. The date selector correctly points to the publication date but relies on a positional pseudo‑class that may break if the layout changes.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 2,
+                  "max_score": 10,
+                  "issues_count": 4
+                },
+                "recall": {
+                  "score": 1,
+                  "max_score": 10,
+                  "issues_count": 3
+                },
+                "robustness": {
+                  "score": 2,
+                  "max_score": 10,
+                  "issues_count": 5
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "#content .page-navigation__header captures only the headline, not the tables"
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 3,
+                  "penalty": -3.0,
+                  "examples": [
+                    "#content .quick-links-list li a selects navigation links",
+                    "#content .advertisement block captures ad blocks",
+                    "#content div.earthquake-today block > div.loader captures the loading spinner"
+                  ]
+                },
+                {
+                  "category": "Wrong Element",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "#content div.earthquake-today block > div.loader selects a loader, not data"
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 2,
+                  "penalty": -1.0,
+                  "examples": [
+                    "#sunbar p:nth-of-type(2) relies on element order that may change",
+                    "#content .page-navigation__header is too generic and could match other pages"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 3.0,
+            "date_quality": 9.0,
+            "issues": [
+              "Missing main article content (tables)",
+              "Capturing navigation links as text",
+              "Including advertisement blocks",
+              "Selecting loader element instead of data",
+              "Using brittle selectors that may break on layout changes"
+            ],
+            "suggestions": "Use more specific selectors such as '#content .earthquake-map block > div.table-block' and '#content .earthquake-chart block > div.table-block' for the tables, exclude elements with classes like 'advertisement', avoid nth‑of‑type for dates (use a unique class or id), and remove the loader selector."
+          }
+        },
+        {
+          "url": "https://www.volcanodiscovery.com/ru/zemletryaseniya/kazahstan/almati.html",
+          "domain": "www.volcanodiscovery.com",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 8756,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 2.7,
+            "confidence": 0.6,
+            "reason": {
+              "description": "The selector set is highly fragmented: only #contentmain actually points to the core article content, while the others either target ads (#bn), side‑widgets (#locInfoBox) or partial sections (#section-overview .textbox, #section-QTable .dataTable). The date selector #locInfoDetails does not contain the publication/update timestamp – that information lives in a separate div with the \"Обновлено:\" text. Consequently precision is low (noise from ads and widgets), recall is moderate (the main table is captured but summary text is missed by some selectors), and robustness suffers because many selectors rely on brittle IDs or class chains.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 3,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "recall": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "robustness": {
+                  "score": 4,
+                  "max_score": 10,
+                  "issues_count": 3
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 3,
+                  "penalty": -6,
+                  "examples": [
+                    "#bn selects an ad container instead of article text.",
+                    "#locInfoBox captures a location/weather widget, not the main content.",
+                    "#locInfoDetails contains only local‑time info, not the article timestamp."
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 2,
+                  "penalty": -2,
+                  "examples": [
+                    "#bn includes an ad block.",
+                    "#locInfoBox contains a weather widget and navigation links."
+                  ]
+                },
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 2,
+                  "penalty": -2,
+                  "examples": [
+                    "#section-overview .textbox only holds the summary paragraph, missing the quake table.",
+                    "#section-QTable .dataTable only contains the quake list, omitting the introductory text."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 3.8,
+            "date_quality": 0,
+            "issues": [
+              "Selector #bn captures an advertisement block instead of article content.",
+              "Selector #locInfoBox targets a weather widget rather than main text.",
+              "Date selector #locInfoDetails does not contain the publication/update timestamp."
+            ],
+            "suggestions": "Use a single, robust selector that points to the primary content container (e.g., '#contentmain'). For dates, target the element containing the \"Обновлено:\" text or use the meta property 'article:modified_time' if available. Avoid IDs that are likely to change and exclude elements that hold ads or widgets."
+          }
+        },
+        {
+          "url": "https://el.kz/ru/samoe_strashnoe_zemletryasenie_v_istorii_almati_252/",
+          "domain": "el.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 3092,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 9.2,
+            "confidence": 0.95,
+            "reason": {
+              "description": "The main text selectors correctly target all <p> and <img> elements inside the article body container (.detail-news-body__alltext), capturing every paragraph, heading, quote, and image without pulling in navigation or sidebar content. The date selector .detail-news-header span:nth-child(1) does locate the publication timestamp (23.01.2017 11:50) but relies on a positional pseudo‑class that could break if any new element is inserted before the date span. No missing content, no noise, and only a minor fragility issue were identified.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": 0.5,
+                  "examples": [
+                    "Date selector uses :nth-child(1) which may fail if an element is added before the date span."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 10,
+            "date_quality": 9,
+            "issues": [
+              "Fragility in date selector due to nth-child usage"
+            ],
+            "suggestions": "Replace the date selector with a more stable one, e.g. `.detail-news-header__d` or use an attribute selector if available."
+          }
+        },
+        {
+          "url": "https://rus.azattyq.org/a/32871809.html",
+          "domain": "rus.azattyq.org",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 4448,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.8,
+            "confidence": 0.85,
+            "reason": {
+              "description": "The main text selector `#article-content .wsw p` accurately captures all paragraph elements of the article body and excludes navigation, sidebars, ads, and comments. The container selector `.row div.col-xs-12.col-sm-12.col-md-8.col-lg-8` also points to the correct column but is overly specific with a long class chain that could break if the layout changes. The date selector `.publishing-details span.date time` correctly targets the publication timestamp and does not pull any unrelated dates. Overall precision and recall are high, but both selectors exhibit minor fragility due to reliance on multiple CSS classes.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 2
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 2,
+                  "penalty": 1.0,
+                  "examples": [
+                    "Selector `.row div.col-xs-12.col-sm-12.col-md-8.col-lg-8` relies on a long chain of classes that may change with layout updates.",
+                    "Date selector `.publishing-details span.date time` depends on the exact class names `publishing-details` and `date`, which could be altered in future revisions."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.0,
+            "date_quality": 9.0,
+            "issues": [
+              "Minor fragility in main text selector due to long class chain",
+              "Minor fragility in date selector due to specific class names"
+            ],
+            "suggestions": "Use more robust selectors such as `#article-content p` for the article body and `.publishing-details time` or simply `time[datetime]` for the publication date."
+          }
+        },
+        {
+          "url": "https://www.zakon.kz/stati/6427518-zemletryaseniya-v-almaty-kazakhstanskiy-seysmolog-vyskazalsya-o-prognozakh-svoikh-kolleg.html",
+          "domain": "www.zakon.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 5024,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 5.8,
+            "confidence": 0.7,
+            "reason": {
+              "description": "The main‑text selectors capture almost all of the article’s paragraphs and blockquotes, but they also pull in unrelated elements: a heading paragraph inside the related‑articles section, the entire related‑articles cards themselves, and an ad container. These are unwanted noise that lowers precision. The date selector is accurate and robust. Overall precision is moderate (≈6/10), recall is high (≈9/10) and robustness is good (≈8/10). After applying penalties for the three noise issues (-2.5 points) the weighted score falls into the ‘Fair’ range.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 3
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 3,
+                  "penalty": -2.5,
+                  "examples": [
+                    ".article__content p captures the ‘Материал по теме’ paragraph inside the related‑articles block.",
+                    ".addedNews .addedNews_block pulls in entire related‑articles cards that are not part of the main story.",
+                    ".article__content div.desktop_hide selects an ad container within the article."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 7.5,
+            "date_quality": 10,
+            "issues": [
+              "Selector .article__content p includes unrelated paragraph from addedNews section.",
+              "Selector .addedNews .addedNews_block captures related‑articles cards as part of main content.",
+              "Selector .article__content div.desktop_hide pulls in an ad element."
+            ],
+            "suggestions": "Use more specific selectors: e.g., `.article__content > .content > p` to exclude nested blocks, add `:not(.desktop_hide)` or remove that selector entirely, and keep the date selector as is. This will improve precision while maintaining recall and robustness."
+          }
+        },
+        {
+          "url": "https://dknews.kz/ru/v-strane/376600-v-almaty-proizoshlo-zemletryasenie-magnitudoy-6-7",
+          "domain": "dknews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2120,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 9.0,
+            "confidence": 0.85,
+            "reason": {
+              "description": "The primary article body is correctly captured by the selector `.postBody .text`, which selects all paragraphs, lists and blockquotes inside the article. However, it also pulls in a small metadata section (`<div id=\"comm\" class=\"content_tags\">`) that contains tag links – this adds minor noise. The secondary selector `.postBody > div:nth-child(6)` is incorrect: it targets the 6th child of `.postBody`, which happens to be the `<div class=\"readBlock\">` containing an ad, not article content. This wrong element introduces a medium‑severity penalty. No date extraction issues were found – `time[datetime]` correctly points to the publication timestamp.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9.5,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "`.postBody > div:nth-child(6)` selects the readBlock ad container instead of article text"
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "`.postBody .text` includes `<div id=\"comm\" class=\"content_tags\">` with tag links"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9.5,
+            "date_quality": 10,
+            "issues": [
+              "Wrong element selector `.postBody > div:nth-child(6)` captures non‑article content",
+              "Minor noise from `.postBody .text` capturing tag links"
+            ],
+            "suggestions": "Use only the `.postBody .text` selector for article body and exclude the tags section with a sub‑selector, e.g. `.postBody .text :not(.content_tags)`. Remove or replace the brittle nth-child selector."
+          }
+        },
+        {
+          "url": "https://rus.azattyq.org/a/32787857.html",
+          "domain": "rus.azattyq.org",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 5958,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.5,
+            "confidence": 0.85,
+            "reason": {
+              "description": "The main text selector captures the entire article container, including all paragraphs and embedded media, but its overly specific chain of classes makes it fragile to layout changes. The paragraph‑only selector misses embedded media (a minor recall issue) and is also fragile. The date selector correctly targets the publication time element with no noise or missing content.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 2
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Fragility",
+                  "severity": "medium",
+                  "count": 2,
+                  "penalty": -2.0,
+                  "examples": [
+                    "Selector '.body-container .row div.col-xs-12.col-sm-12.col-md-10.col-md-offset-1 div.row div.col-xs-12.col-sm-12.col-md-8.col-lg-8.col-md-offset-2 .content-floated-wrap' relies on many nested classes and offsets.",
+                    "Selector '.body-container .row div.col-xs-12.col-sm-12.col-md-10.col-md-offset-1 div.row div.col-xs-12.col-sm-12.col-md-8.col-lg-8.col-md-offset-2 .content-floated-wrap p' is equally brittle."
+                  ]
+                },
+                {
+                  "category": "Missing Content",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "The paragraph‑only selector does not capture embedded media blocks (e.g., Facebook video, Telegram post)."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.0,
+            "date_quality": 9.5,
+            "issues": [
+              "Fragile selectors due to long class chains and offsets.",
+              "Paragraph‑only selector misses embedded media."
+            ],
+            "suggestions": "Use simpler, more robust selectors such as '#article-content' for the article body and '.publishing-details .date time' for the date. If text only is needed, consider extracting all <p> tags within '#article-content', but be aware that embedded media will still be omitted."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/almatintsam-prishlo-uvedomlenie-o-zemletryasenii-583905/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 1647,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 8.5,
+            "confidence": 0.92,
+            "reason": {
+              "description": "The two main‑text selectors target the article body, but only `.content_main_text` is clean and complete. The wrapper selector `.content_main_inner` pulls in share controls and other UI elements, adding noise. Both selectors are present in the DOM and capture all paragraphs, headings, quotes, images and embedded maps, so recall is high. However, the presence of non‑article content reduces precision for `.content_main_inner`. The date selector `meta[itemprop='datePublished']` correctly points to the publication timestamp and exists twice with identical values, so it is accurate and robust.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8.0,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 9.5,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9.0,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "`.content_main_inner` includes the share button block which is not part of the article text."
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Class names like `content_main_inner` may change in future layout updates, making the selector brittle."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.25,
+            "date_quality": 10.0,
+            "issues": [
+              "Excessive noise captured by `.content_main_inner`",
+              "Minor fragility due to page‑specific class names"
+            ],
+            "suggestions": "Use only the `.content_main_text` selector for article body extraction and keep the date selector as `meta[itemprop='datePublished']`. If future layouts change, consider selecting by itemprop or a more stable container."
+          }
+        },
+        {
+          "url": "https://prg.kz/document/?doc_id=31323760",
+          "domain": "prg.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 953,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 1.5,
+            "confidence": 0.6,
+            "reason": {
+              "description": "All three main‑text selectors fail to match any element that contains the article body – the page uses a custom Vue component structure (e.g., <div id=\"document-31323760\">) rather than generic classes like .article-content or .article-body. The third selector targets an unrelated second child of a data‑attribute div, which is part of the header dialog and not the content. Consequently, no paragraphs, headings or quotes are captured (Missing Content – critical). The date selector points to a meta tag for an image URL instead of a publication timestamp, so it returns an irrelevant value (Wrong Element – critical). These two critical failures dominate the evaluation, yielding a very low overall score.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 0,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "recall": {
+                  "score": 0,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "robustness": {
+                  "score": 5,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 3,
+                  "penalty": -6.0,
+                  "examples": [
+                    "Selector '.article-content' matches no element in the DOM.",
+                    "Selector '.article-body' matches no element in the DOM.",
+                    "Selector 'div[data-v-a0f41e9f] > div:nth-child(2)' selects a header dialog, not article text."
+                  ]
+                },
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "Date selector meta[property='og:image:secure_url'] returns an image URL, not a publication date."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 0.0,
+            "date_quality": 0.0,
+            "issues": [
+              "No selector matches the article body.",
+              "Date selector points to an unrelated meta tag."
+            ],
+            "suggestions": "Use selectors that target the Vue component containing the document content, e.g., '#document-31323760 .content-container', and use a meta tag like meta[property='article:published_time'] or the JSON‑LD datePublished field for the timestamp."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/poyavilis-dannyie-o-sile-zemletryaseniya-v-almatyi-587244/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 8283,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 3.8,
+            "confidence": 0.7,
+            "reason": {
+              "description": "The main‑text selectors capture almost all of the article body but one selector (.content_main_inner) also pulls in share buttons, which is a small amount of noise. The date selector (.content_main_meta span:last-child) does not point to any publication timestamp – it selects a view counter element instead – which is a critical error. Overall precision and recall for the text are high, but the wrong date selector drags the final score down into the ‘Poor’ range.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8.5,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 9.0,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9.0,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "`.content_main_inner` includes the share‑button block, which is not part of the article body."
+                  ]
+                },
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "`.content_main_meta span:last-child` selects a view‑counter element instead of the publication date."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.5,
+            "date_quality": 1.0,
+            "issues": [
+              "Wrong element: date selector does not capture publication date",
+              "Excessive noise: `.content_main_inner` includes share buttons"
+            ],
+            "suggestions": "Use the more precise selector `.content_main_text` for article content and target a dedicated date element such as `meta[itemprop=\"datePublished\"]` or the `<time>` tag inside the breadcrumbs for the publication timestamp."
+          }
+        },
+        {
+          "url": "https://ru.sputnik.kz/20240225/v-almaty-pochuvstvovali-zemletryasenie-42485286.html",
+          "domain": "ru.sputnik.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 1946,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.3,
+            "confidence": 0.85,
+            "reason": {
+              "description": "The selectors correctly locate the article body (.article__body) which contains all text, quotes, headings and images, giving high precision and recall for main content. The secondary selector (.article__block > div.article__text) is redundant but still captures paragraph text; it may break if class names change. The date selector (.article__info-date) exists and holds the publication time, but also includes an \"обновлено\" span and a link to the archive page, adding unnecessary noise.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "The .article__info-date div contains an \"обновлено\" span and a link to the archive page."
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    ".article__block > div.article__text may break if class names or DOM structure change."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9,
+            "date_quality": 8.3,
+            "issues": [
+              "Excessive noise in date selector",
+              "Fragile text paragraph selector"
+            ],
+            "suggestions": "Use only .article__body to extract the full article content, and refine the date selector to .article__info-date > a or .article__info-date span.date to capture just the publication timestamp."
+          }
+        },
+        {
+          "url": "https://rus.azattyq.org/a/dvuhballnoe-zemletryasenie-proizoshlo-v-almaty-epitsentr-raspolozhen-v-kyrgyzstane/33436461.html",
+          "domain": "rus.azattyq.org",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 967,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.6,
+            "confidence": 0.9,
+            "reason": {
+              "description": "The main‑text selector '#article-content .wsw p' correctly captures all five paragraphs of the article body, avoiding navigation, sidebars and ads. The additional selector '#article-content .wsw div.fb-comments' does not match any element in the DOM, which is a wrong element error but does not affect content extraction. The date selector '.publishing-details time' accurately points to the publication timestamp. Overall precision, recall and robustness for the valid selectors are excellent; only one non‑existent selector introduces a minor penalty.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1,
+                  "examples": [
+                    "#article-content .wsw div.fb-comments does not exist in the DOM"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.5,
+            "date_quality": 10,
+            "issues": [
+              "Selector '#article-content .wsw div.fb-comments' does not match any element in the DOM"
+            ],
+            "suggestions": "Remove or correct the non‑existent selector; keep only '#article-content .wsw p' for article body extraction. Ensure future selectors target existing elements to avoid Wrong Element penalties."
+          }
+        },
+        {
+          "url": "https://www.gov.kz/memleket/entities/emer/press/news/details/719139?lang=ru",
+          "domain": "www.gov.kz",
+          "extraction_accuracy": {
+            "main_text_found": false,
+            "main_text_length": 0,
+            "date_found": true,
+            "extraction_accuracy_score": 0.3
+          },
+          "gpt_judgment": {
+            "score": 6.0,
+            "confidence": 0.7,
+            "reason": {
+              "description": "The main text selectors fail to capture any of the article paragraphs because they target only direct children of the second div, while the actual content resides in a nested third div. The image selector captures only the picture, providing no textual data. The date selector points to the meta description tag, which contains a summary but not a publication timestamp. Consequently, precision is high (no noise), recall is very low for both main text and date, and robustness is moderate due to fragile child‑only selectors.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 2,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 5,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "All <p> elements inside the third div are not selected by 'body > div > div > p'"
+                  ]
+                },
+                {
+                  "category": "Wrong Element",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "date_selector selects <meta name='description'> which contains a summary, not the publication date"
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selectors rely on exact child hierarchy (body > div > div), breaking if any wrapper is added or removed"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 2.0,
+            "date_quality": 3.0,
+            "issues": [
+              "Missing article body paragraphs",
+              "Date selector points to meta description instead of publication date"
+            ],
+            "suggestions": "Use a selector that reaches the nested content, e.g., 'body > div > div > div p' or target classes/IDs if available. For the date, look for <meta property='article:published_time'> or a <time> element within the article body."
+          }
+        },
+        {
+          "url": "https://kndc.kz/index.php/home-ru/kndcnews/227-operativnaya-informatsiya-o-proizoshedshem-zemletryasenii-23-01-2024-g",
+          "domain": "kndc.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 3355,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 4.6,
+            "confidence": 0.7,
+            "reason": {
+              "description": "The two main‑text selectors correctly target the article body and capture all paragraphs, headings, images and tables without pulling in navigation or sidebars. They are robust to minor layout changes because they rely on stable IDs and class names. The date selector, however, is a long chained path that does not match any element in the DOM; consequently no publication date is extracted. This constitutes a critical error under \"Wrong Element\".\n\nOverall, main‑text quality is excellent (precision = 9/10, recall = 9/10, robustness = 8/10), while date quality is poor (score = 1/10). The weighted average before penalties is 6.6; subtracting the critical penalty of –2 points yields a final score of 4.6, placing it in the \"Poor\" range.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": 2.0,
+                  "examples": [
+                    "date_selector does not match any element in the DOM"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9.0,
+            "date_quality": 1.0,
+            "issues": [
+              "Wrong Element: date_selector does not match any element"
+            ],
+            "suggestions": "Replace the long chained selector with a simpler one that targets the article container and then extract the first paragraph or meta tag containing the publication date, e.g., `#jsn-content .article p:first-of-type` and parse the date string."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/opoveschenie-zemletryasenii-almatyi-dchs-soobschili-583908/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 904,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.1,
+            "confidence": 0.9,
+            "reason": {
+              "description": "The main text selectors capture the full article body but also include share buttons, tags and a comments component, which introduces noise. The date selector correctly points to the publication timestamp. Overall precision is high, recall is complete, and robustness is moderate due to reliance on class names that may change.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Share buttons and tags inside .content_main_inner"
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    ".content_main_inner selector may break if layout changes"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.0,
+            "date_quality": 10.0,
+            "issues": [
+              "Excessive noise from .content_main_inner capturing share buttons and tags",
+              "Fragility due to reliance on class names that may change"
+            ],
+            "suggestions": "Use a more specific selector for the article body, e.g., '.content_main_text[itemprop=\"articleBody\"]', and exclude elements like .content_main_share, tags, and comments. Keep .content_main_thumb for images if needed."
+          }
+        }
+      ]
+    },
+    "gpt_oss": {
+      "total_links": 20,
+      "success_count": 17,
+      "success_rate": 0.85,
+      "extraction_accuracy_avg": 0.965,
+      "gpt_quality_avg": 0.701,
+      "final_score": 83.99,
+      "details": [
+        {
+          "url": "https://dknews.kz/ru/eksklyuziv-dk/376856-pochemu-almaty-prodolzhaet-verit-sluham-o",
+          "domain": "dknews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 3586,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.2,
+            "confidence": 0.92,
+            "reason": {
+              "description": "The main text selector captures almost the entire article body, but it misses list items and blockquote content that are semantically important. The date selector is accurate and robust. Overall precision is high, recall is moderate due to missing elements, and robustness is acceptable because class names are stable but could change with future redesigns.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 7.5,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 6.0,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "robustness": {
+                  "score": 6.0,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 2,
+                  "penalty": -2.0,
+                  "examples": [
+                    "List items inside <ul> are not selected",
+                    "Blockquote paragraph is omitted"
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selector relies on specific class names that may change in future redesigns"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 6.6,
+            "date_quality": 8.5,
+            "issues": [
+              "Missing list items in article body",
+              "Missing blockquote content"
+            ],
+            "suggestions": "Use a more inclusive selector such as 'div.newsitem .postBody .text *' or explicitly add 'li, blockquote' to the selection set. Consider excluding known ad containers (e.g., '.rm1') if they ever contain <p> tags."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/zemletryasenie-proizoshlo-v-46-kilometrah-ot-almatyi-590074/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 1122,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 4.25,
+            "confidence": 0.8,
+            "reason": {
+              "description": "The main text selector captures only direct <p> children of the article body, missing important elements such as the heading inside <h2>, the \"Продолжение\" list and the embedded map iframe. The date selector correctly targets the publication timestamp but relies on a specific class hierarchy that could break if the site’s CSS changes.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 3
+                },
+                "robustness": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 3,
+                  "penalty": -3.0,
+                  "examples": [
+                    "Heading inside <h2 class=\"content_main_desc\"> not captured",
+                    "\"Продолжение\" list inside <div class=\"tn-continuation\"> omitted",
+                    "Embedded map iframe omitted"
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selector relies on specific class names that may change (e.g., .content_main_text > p)"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 7.0,
+            "date_quality": 9.5,
+            "issues": [
+              "Missing heading in article body",
+              "Missing \"Продолжение\" links",
+              "Missing embedded map iframe"
+            ],
+            "suggestions": "Use a broader selector such as 'section.first .content_main_text' or extract the entire innerHTML of that div to include all nested elements. For date, consider using the meta property 'article:published_time' for robustness."
+          }
+        },
+        {
+          "url": "https://voshod-solnca.ru/earthquake/%D0%B0%D0%BB%D0%BC%D0%B0%D1%82%D1%8B",
+          "domain": "voshod-solnca.ru",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2061,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 8.7,
+            "confidence": 0.9,
+            "reason": {
+              "description": "The selectors correctly target the article heading, introductory paragraphs, and key informational blocks about today’s earthquake and nearest‑earthquake table. The date selector captures the displayed date. No irrelevant content is included, and all elements exist in the DOM. The only fragility comes from using :last-child for the date, which could break if the layout changes.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Date selector uses :last-child which may fail if the order of <p> tags changes."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9.0,
+            "date_quality": 8.0,
+            "issues": [
+              "Fragility: Date selector uses :last-child which may break if layout changes."
+            ],
+            "suggestions": "Use a more explicit selector for the date, e.g., '#sunbar-info p:nth-of-type(2)' or add a data attribute to the date element. Consider grouping all main text blocks into a single container and selecting its descendant paragraphs to reduce multiple selectors."
+          }
+        },
+        {
+          "url": "https://www.volcanodiscovery.com/ru/zemletryaseniya/kazahstan/almati.html",
+          "domain": "www.volcanodiscovery.com",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 11958,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 5.6,
+            "confidence": 0.7,
+            "reason": {
+              "description": "The four main selectors target different parts of the page: #contentmain captures almost everything but also pulls in navigation and ads; #summary and #section-archive miss most of the useful data because they only contain a brief update notice or a JS‑loaded placeholder; #qTable is highly focused on the earthquake list. The date selector correctly grabs the last‑updated timestamp. Overall precision is moderate, recall is limited by the missing selectors, and robustness is acceptable due to stable IDs.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 5.5,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 4.5,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "robustness": {
+                  "score": 7.0,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "#contentmain includes navigation dropdowns and ad containers"
+                  ]
+                },
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 2,
+                  "penalty": -4.0,
+                  "examples": [
+                    "#summary does not contain the earthquake table or main headings",
+                    "#section-archive contains only a placeholder and no data until JS loads"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 4.5,
+            "date_quality": 8.0,
+            "issues": [
+              "Selector #contentmain pulls in navigation elements and ads, reducing precision.",
+              "Selectors #summary and #section-archive miss the bulk of relevant content (critical recall issue).",
+              "No selectors are overly fragile; IDs are stable."
+            ],
+            "suggestions": "Use a focused selector such as '#qTable' for scraping earthquake data, combine it with '#summary' to capture summary statistics, and filter out elements with classes like 'adCont', 'navOnPage', or 'actionBtn' that add noise. Consider using XPath or CSS selectors that target only the table rows (e.g., '#qTable tbody tr') to avoid capturing script tags and navigation."
+          }
+        },
+        {
+          "url": "https://el.kz/ru/samoe_strashnoe_zemletryasenie_v_istorii_almati_252/",
+          "domain": "el.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 3092,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 9.6,
+            "confidence": 0.95,
+            "reason": {
+              "description": "The main text selector `#main-content .detail-news-body__alltext p` correctly targets all paragraph elements inside the article body, capturing every paragraph and strong tag while excluding navigation, sidebars, ads, and footer content. The date selector `.detail-news-header__d` points to the exact span containing the publication timestamp. Both selectors exist in the DOM, are not overly fragile (they rely on stable class names rather than nth-child or deep chains), and do not introduce noise or miss relevant content.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9.5,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selector uses the id `#main-content`; if the page layout changes and this id is removed or renamed, the selector will break."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9.5,
+            "date_quality": 10,
+            "issues": [],
+            "suggestions": "Consider simplifying the main text selector to `.detail-news-body__alltext p` to reduce dependency on the `#main-content` id, improving robustness against layout changes."
+          }
+        },
+        {
+          "url": "https://rus.azattyq.org/a/32871809.html",
+          "domain": "rus.azattyq.org",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2087,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 9.5,
+            "confidence": 0.95,
+            "reason": {
+              "description": "The selector `#article-content p` correctly targets all paragraph elements within the main article container, capturing every relevant sentence and quote while avoiding navigation, sidebars, ads, and comments. The date selector `.publishing-details .date time` accurately points to the publication timestamp. Minor noise is introduced by an empty `<p>` element inside the article content, but this has negligible impact on overall quality.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9.5,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 9.8,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9.7,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Empty <p> element inside #article-content"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9.5,
+            "date_quality": 10.0,
+            "issues": [
+              "Empty paragraph captured within main text"
+            ],
+            "suggestions": "Refine the main text selector to exclude empty paragraphs, e.g., `#article-content p:not(:empty)`."
+          }
+        },
+        {
+          "url": "https://www.zakon.kz/stati/6427518-zemletryaseniya-v-almaty-kazakhstanskiy-seysmolog-vyskazalsya-o-prognozakh-svoikh-kolleg.html",
+          "domain": "www.zakon.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 4807,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 6.6,
+            "confidence": 0.9,
+            "reason": {
+              "description": "The main text selectors capture all <p> elements inside the article body and all blockquotes, which covers the bulk of the article content. However, they miss the short description (<div class=\"description\">) that appears immediately after the title, as well as any supplementary sections such as \"Материал по теме\" that are wrapped in <div class=\"addedNews\">. The date selector correctly points to the publication time element and does not include any extraneous data.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 5,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "The <div class=\"description\"> element is not selected by the provided selectors."
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selectors rely on the specific class \"content\" which may change if the site redesigns its article layout."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 7.5,
+            "date_quality": 9.5,
+            "issues": [
+              "Missing content: description div not captured",
+              "Fragility: selector relies on .content class which may change"
+            ],
+            "suggestions": "Add a selector for the short description (e.g., 'section#article .description') and consider using more generic selectors such as 'section#article :is(p, blockquote)' to reduce fragility. Also verify that any supplementary sections you want to include are explicitly selected."
+          }
+        },
+        {
+          "url": "https://dknews.kz/ru/v-strane/376600-v-almaty-proizoshlo-zemletryasenie-magnitudoy-6-7",
+          "domain": "dknews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2114,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 7.3,
+            "confidence": 0.9,
+            "reason": {
+              "description": "The provided selectors correctly target the textual content of the article: all <p>, <ul> list items, and blockquotes inside the main text container are captured with no noise from sidebars or ads. The date selector accurately points to the publication timestamp. However, the image and its caption located in a sibling <div class=\"mainpic\"> are not selected, representing a missing piece of content. No false positives or wrong elements were found, and the selectors are reasonably robust against minor DOM changes.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Image and caption in <div class=\"mainpic\"> are not captured by the selectors"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.0,
+            "date_quality": 9.0,
+            "issues": [
+              "Missing image and caption from article body"
+            ],
+            "suggestions": "Add a selector for the main picture, e.g., 'div.postBody > div.mainpic', or include it in the existing main_text_selectors to ensure full content capture."
+          }
+        },
+        {
+          "url": "https://rus.azattyq.org/a/32787857.html",
+          "domain": "rus.azattyq.org",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 3251,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 9.5,
+            "confidence": 0.95,
+            "reason": {
+              "description": "The selectors capture the entire article body: all <p> tags inside #article-content plus the introductory paragraph via .intro p, and they correctly locate the publication date with div.publishing-details time. No irrelevant content is included, and no main paragraphs are missed. The only weakness is a minor fragility in the .intro selector if the class name changes or the intro block is removed.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "The selector '.intro p' may fail if the intro block is removed or its class name changes."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 10,
+            "date_quality": 10,
+            "issues": [
+              "Minor fragility in the .intro p selector"
+            ],
+            "suggestions": "Replace '.intro p' with a more robust selector such as '#content .intro > p' or include the intro paragraph within #article-content if possible. For date extraction, consider using 'time[datetime]' to avoid reliance on specific class names."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/almatintsam-prishlo-uvedomlenie-o-zemletryasenii-583905/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 649,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 7.0,
+            "confidence": 0.72,
+            "reason": {
+              "description": "The main‑text selector captures only direct <p> elements inside the article body, which omits important parts such as the introductory paragraph, blockquote text and the continuation list items. It also pulls an empty <p> that contains only an image, adding a small amount of noise. The date selector correctly targets the publication timestamp. Overall precision is high but recall suffers due to missing content, and the selector’s reliance on specific class names makes it somewhat fragile.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 5,
+                  "max_score": 10,
+                  "issues_count": 3
+                },
+                "robustness": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 3,
+                  "penalty": -6.0,
+                  "examples": [
+                    "Introductory paragraph before the main content (\"Жителям Алматы…\")",
+                    "Paragraph inside the <blockquote> element",
+                    "List items in the \"tn‑continuation\" section"
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "<p> containing only an <img> tag (no textual content)"
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selector relies on the exact class hierarchy 'section.first .content_main_text p', which may break if the article layout changes."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 7.0,
+            "date_quality": 10.0,
+            "issues": [
+              "Missing introductory paragraph",
+              "Missing blockquote content",
+              "Missing continuation list items",
+              "Capturing empty <p> with image"
+            ],
+            "suggestions": "Use a selector that captures all descendant nodes of the article body, e.g., 'section.first .content_main_text *', or extract text from the JSON‑LD \"articleBody\" field. This will include blockquotes and continuation lists while still avoiding navigation elements."
+          }
+        },
+        {
+          "url": "https://prg.kz/document/?doc_id=31323760",
+          "domain": "prg.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 1811,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 0,
+            "confidence": 0.2,
+            "reason": {
+              "description": "The provided main text selectors capture only the title and a toolbar container, missing all article paragraphs, headings, quotes, etc. The date selector points to an element that does not exist in the DOM, resulting in no date extraction. Consequently, precision is low, recall is very poor for both main content and date, and robustness is questionable due to reliance on non‑existent selectors.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 2,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 1,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 3,
+                  "max_score": 10,
+                  "issues_count": 2
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Article body paragraphs are not captured by '#document-31323760 .content-container'"
+                  ]
+                },
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    ".document-info-panel .publish-info > div:first-child > span:last-child does not exist in the DOM"
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "'#document-31323760 .content-container' includes toolbar and action buttons that are not part of the article"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 2,
+            "date_quality": 1,
+            "issues": [
+              "Main text selector misses article body content",
+              "Date selector points to a non‑existent element"
+            ],
+            "suggestions": "Use a selector that targets the actual article container, e.g., '#document-31323760 .document-content > *', and adjust the date selector to match an existing element such as '.document-info-panel .publish-info span:last-child'."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/poyavilis-dannyie-o-sile-zemletryaseniya-v-almatyi-587244/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 994,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 6.5,
+            "confidence": 0.7,
+            "reason": {
+              "description": "The main text selectors capture all paragraph elements inside the article body but miss non‑paragraph content such as images, blockquotes and lists. The date selector correctly points to a meta tag with the publication timestamp, though its timezone differs from the JSON‑LD value. No navigation or advertisement nodes are selected, so precision is high, but recall suffers due to missing media elements.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 5,
+                  "max_score": 10,
+                  "issues_count": 3
+                },
+                "robustness": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 3,
+                  "penalty": -3.0,
+                  "examples": [
+                    "Images inside the article body are not captured by .content_main_text p.",
+                    "Blockquote elements (e.g., Instagram embed) are omitted.",
+                    "Unordered lists (<ul>) containing intensity data are missed."
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "The selector .content_main_desc duplicates the first paragraph already present in .content_main_text p."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 6.5,
+            "date_quality": 8.5,
+            "issues": [
+              "Missing images in article body",
+              "Missing blockquotes and lists",
+              "Duplicate first paragraph due to .content_main_desc"
+            ],
+            "suggestions": "Use a single selector that captures all descendant nodes of the main content container, e.g., '.content_main_text *', but exclude elements with classes like 'tn-continuation' or 'content_main_share'. For date extraction, prefer the JSON‑LD property 'datePublished' to avoid timezone inconsistencies."
+          }
+        },
+        {
+          "url": "https://ru.sputnik.kz/20240225/v-almaty-pochuvstvovali-zemletryasenie-42485286.html",
+          "domain": "ru.sputnik.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 901,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 3.2,
+            "confidence": 0.7,
+            "reason": {
+              "description": "The main‑text selectors capture only the paragraph blocks (`data-type='text'`) and the announce text, but they miss the heading (`h3.article__h2`) and quote block (`article__quote`). This omission is a critical loss of content. The date selector correctly points to the publication time element. Precision is high (no noise), recall is low due to missing elements, and robustness is moderate because class names could change.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 5,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "robustness": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 2,
+                  "penalty": -4.0,
+                  "examples": [
+                    "Heading block (h3.article__h2) not captured",
+                    "Quote block (.article__quote) not captured"
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selectors rely on specific class names that may change"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 7.3,
+            "date_quality": 8.5,
+            "issues": [
+              "Missing heading block",
+              "Missing quote block",
+              "Minor fragility due to reliance on class names"
+            ],
+            "suggestions": "Use a selector that captures all article blocks regardless of data-type, e.g., `div.article__body .article__block > *`, and then filter by element type if needed. This will include headings, quotes, and other content while still avoiding sidebars or ads."
+          }
+        },
+        {
+          "url": "https://rus.azattyq.org/a/dvuhballnoe-zemletryasenie-proizoshlo-v-almaty-epitsentr-raspolozhen-v-kyrgyzstane/33436461.html",
+          "domain": "rus.azattyq.org",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 1016,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 9.8,
+            "confidence": 0.96,
+            "reason": {
+              "description": "The selector `#article-content p` accurately targets all paragraph elements within the article body, avoiding navigation, sidebars, and other page content. The date selector `.publishing-details .published time` correctly points to the publication timestamp element. No irrelevant nodes are captured, and no relevant paragraphs or headings are omitted. The selectors rely on stable IDs/classes that are unlikely to change with minor layout updates, giving them good robustness.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 10,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "None",
+                  "severity": "none",
+                  "count": 0,
+                  "penalty": 0,
+                  "examples": []
+                }
+              ]
+            },
+            "main_text_quality": 10,
+            "date_quality": 10,
+            "issues": [],
+            "suggestions": "The current selectors perform well. If future article pages introduce additional nested elements (e.g., blockquotes or lists) inside `#article-content`, consider tightening the selector to `#article-content .wsw p` to ensure only direct content paragraphs are captured."
+          }
+        },
+        {
+          "url": "https://www.gov.kz/memleket/entities/emer/press/news/details/719139?lang=ru",
+          "domain": "www.gov.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 904,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 8.2,
+            "confidence": 0.86,
+            "reason": {
+              "description": "The main text selectors correctly target the eight paragraph elements that contain the article body, avoiding navigation or footer content. They capture all relevant paragraphs and headings (the h1 is outside the selector set). The date selector points to a meta tag that contains the publication timestamp within its description attribute; while it also includes additional narrative text, the date information is present and accurate. However, the use of `nth-of-type` and a very specific DOM path introduces fragility: any change in paragraph order or addition of new elements would break the selectors.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Fragility",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Using nth-of-type(8) will fail if a new paragraph is inserted before the eighth one."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9.0,
+            "date_quality": 7.0,
+            "issues": [
+              "Fragility due to nth-of-type selectors"
+            ],
+            "suggestions": "Replace the specific nth-of-type chain with a broader selector such as `body > div > div > div p` or use class/attribute filters if available, and consider extracting the date from a dedicated meta tag like `meta[property='article:published_time']` for cleaner precision."
+          }
+        },
+        {
+          "url": "https://kndc.kz/index.php/home-ru/kndcnews/227-operativnaya-informatsiya-o-proizoshedshem-zemletryasenii-23-01-2024-g",
+          "domain": "kndc.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 3312,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 9.3,
+            "confidence": 0.92,
+            "reason": {
+              "description": "The main text selector `#jsn-mainbody .jsn-article-content p` captures every paragraph inside the article content, including all textual paragraphs and image‑containing `<p>` tags, while excluding sidebars, navigation, ads, and footer elements. The date selector `#jsn-mainbody .jsn-article-content p:first-of-type` reliably points to the first paragraph that contains the publication timestamp. Minor concerns include the omission of the article heading (an `<h2>`) from the captured body text and a slight fragility in relying on `:first-of-type`, which could break if the DOM order changes. Overall, precision is high, recall is near complete, and robustness is acceptable for typical page variations.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 8.5,
+                  "max_score": 10,
+                  "issues_count": 2
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Article heading `<h2>` not captured by the paragraph selector"
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Date selector uses `:first-of-type`, which may fail if DOM order changes or a non‑paragraph element precedes the first paragraph"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9.5,
+            "date_quality": 8.5,
+            "issues": [
+              "Missing article heading",
+              "Potential fragility of date selector due to `:first-of-type`"
+            ],
+            "suggestions": "Consider adding a separate selector for the `<h2>` title (e.g., `#jsn-mainbody .jsn-article-content h2`) and use a more robust date extraction method such as selecting the paragraph that contains a year pattern (`p:contains(\"г.\")`)."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/opoveschenie-zemletryasenii-almatyi-dchs-soobschili-583908/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 830,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.0,
+            "confidence": 0.85,
+            "reason": {
+              "description": "The main text selector `section.first .content_main_text` correctly captures the bulk of the article body, including all paragraphs and blockquotes inside that div. However it omits the introductory paragraph located in `.content_main_desc`, which is part of the official article content. The date selector `section.first nav > span` accurately targets the publication timestamp displayed next to the breadcrumbs. Overall precision and recall are high for both selectors, but the main text selector shows moderate fragility due to reliance on the wrapper `section.first`. These factors result in a fair‑good overall score.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 2
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Introductory paragraph in `.content_main_desc` is not captured by the selector."
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selector depends on `section.first`, which may change if page layout updates."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.0,
+            "date_quality": 9.0,
+            "issues": [
+              "Missing initial paragraph in article body",
+              "Selector may be fragile due to use of 'section.first'"
+            ],
+            "suggestions": "Use a more stable selector such as `.content_main_text[itemprop=\"articleBody\"]` and optionally include `.content_main_desc` if the introductory text is required. Avoid hard‑coding wrapper classes that can change with layout updates."
+          }
+        }
+      ]
+    },
+    "llama": {
+      "total_links": 20,
+      "success_count": 17,
+      "success_rate": 0.85,
+      "extraction_accuracy_avg": 0.524,
+      "gpt_quality_avg": 0.511,
+      "final_score": 65.04,
+      "details": [
+        {
+          "url": "https://dknews.kz/ru/eksklyuziv-dk/376856-pochemu-almaty-prodolzhaet-verit-sluham-o",
+          "domain": "dknews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 8588,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.9,
+            "confidence": 0.85,
+            "reason": {
+              "description": "The selector set captures the article body correctly but includes a small amount of unwanted content (ad placeholders). The date selector is accurate and robust. Overall precision is high, recall is complete, and robustness is good because IDs and class names are stable across pages.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Ad placeholder <div class=\"rm1\"> inside the .text container"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.0,
+            "date_quality": 10.0,
+            "issues": [
+              "Ad placeholder within article text captured by #news_376856 .text"
+            ],
+            "suggestions": "Use '#news_376856 .text' as the main selector and filter out <div class=\"rm1\"> or any other ad containers via CSS/JS. If you prefer a broader selector, use '#news_376856 .postBody > :not(.newsInfo):not(.mainpic):not(.content_tags)' to exclude metadata, images, and tags."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/zemletryasenie-proizoshlo-v-46-kilometrah-ot-almatyi-590074/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 4040,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 4.7,
+            "confidence": 0.6,
+            "reason": {
+              "description": "The set of selectors contains a mix of appropriate and inappropriate choices. The selector `.content_main_text` correctly captures the article body, but many others (`.content_main`, `.content_main_meta`, etc.) pull in navigation, author info, images, and share buttons, leading to low precision. The date selector is completely wrong – it targets the third breadcrumb link instead of the publication timestamp – which is a critical error. Overall recall for the article body is acceptable because `.content_main_text` covers all paragraphs, but robustness suffers due to reliance on brittle class names and an incorrect date selector.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 5,
+                  "max_score": 10,
+                  "issues_count": 8
+                },
+                "recall": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 3
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 8,
+                  "penalty": -8.0,
+                  "examples": [
+                    ".content_main includes author block, stats and share buttons.",
+                    ".content_main_meta pulls only metadata, not article text."
+                  ]
+                },
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "#breadcrumbs > li:nth-child(3) > a > span selects the breadcrumb label 'Новости Казахстана' instead of the publication date."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 6.0,
+            "date_quality": 1.5,
+            "issues": [
+              "Wrong element: date selector points to breadcrumb text instead of publication timestamp.",
+              "Excessive noise: selectors like .content_main, .content_main_meta, .content_main_thumb, etc., include navigation and share elements."
+            ],
+            "suggestions": "Use only `.content_main_text` for article body extraction. Replace the date selector with a more reliable one such as `meta[itemprop='datePublished']` or the `<span>` that follows the breadcrumb list (`nav.single-breadcrumbs > span`)."
+          }
+        },
+        {
+          "url": "https://voshod-solnca.ru/earthquake/%D0%B0%D0%BB%D0%BC%D0%B0%D1%82%D1%8B",
+          "domain": "voshod-solnca.ru",
+          "extraction_accuracy": {
+            "main_text_found": false,
+            "main_text_length": 0,
+            "date_found": true,
+            "extraction_accuracy_score": 0.3
+          },
+          "gpt_judgment": {
+            "score": 5.2,
+            "confidence": 0.82,
+            "reason": {
+              "description": "The two main‑text selectors target elements that do not exist in the DOM, so they capture nothing and miss all article content (critical missing content). The date selector correctly points to the publication date element and captures the right value with no noise. Overall precision is low, recall is very poor for the text, but robustness for the date selector is high.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 2,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 3,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 2,
+                  "penalty": -4.0,
+                  "examples": [
+                    "#content > main:nth-child(1) > h1 does not match any element in the DOM.",
+                    "#content > main:nth-child(2) > div.quick-links... > span also matches nothing."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 2.0,
+            "date_quality": 9.0,
+            "issues": [
+              "Main text selectors target non‑existent elements, resulting in no content extraction.",
+              "Both main text selectors are overly brittle and will break with any structural change."
+            ],
+            "suggestions": "Use a selector that targets the actual article container, e.g., '#content > h1' for the title and '#content .page-navigation__show-more p' or similar for body paragraphs. Ensure the selector is based on stable class names rather than child indices."
+          }
+        },
+        {
+          "url": "https://www.volcanodiscovery.com/ru/zemletryaseniya/kazahstan/almati.html",
+          "domain": "www.volcanodiscovery.com",
+          "extraction_accuracy": {
+            "main_text_found": false,
+            "main_text_length": 0,
+            "date_found": false,
+            "extraction_accuracy_score": 0.0
+          },
+          "gpt_judgment": {
+            "score": 0,
+            "confidence": 0.95,
+            "reason": {
+              "description": "All of the supplied \"selectors\" are not valid CSS selectors – they are fragments of HTML or strings that include spaces and special characters. None of them match any element in the DOM, so every selector is a *Wrong Element* error. The only potentially useful selector (`#topSummary tr td:nth-child(1) > div.aStr`) also fails because the date is wrapped in a `<nowrap>` tag with an inline script, not inside a `div` with class `aStr`. Consequently the selectors capture no content (missing main text and missing date), contain no noise, but are completely unusable. The evaluation therefore falls into the \"Failed\" category.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 0,
+                  "max_score": 10,
+                  "issues_count": 21
+                },
+                "recall": {
+                  "score": 0,
+                  "max_score": 10,
+                  "issues_count": 21
+                },
+                "robustness": {
+                  "score": 0,
+                  "max_score": 10,
+                  "issues_count": 21
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 21,
+                  "penalty": -42,
+                  "examples": [
+                    "# Последние землетрясения, Алматы, за последние 7 дней",
+                    "<h1 class=\"normal\">Последние землетрясения в Алматы, Казахстан, за последние 7 дней<span class=\"optional\"> - полный список и интерактивная карта</span></h1>",
+                    "#topSummary tr td:nth-child(1) > div.aStr"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 0,
+            "date_quality": 0,
+            "issues": [
+              "All main text selectors are invalid CSS and do not match any element.",
+              "The date selector targets a non‑existent `div.aStr` inside the first cell of #topSummary."
+            ],
+            "suggestions": "Replace the fragments with real CSS selectors that target the article content, e.g. use '#contentmain .dataTable' for the list of quakes and '#topSummary tr td:nth-child(2) nowrap script' or a custom data‑attribute to extract the timestamp. Ensure selectors are simple, stable (avoid nth‑child where possible), and reference existing elements."
+          }
+        },
+        {
+          "url": "https://el.kz/ru/samoe_strashnoe_zemletryasenie_v_istorii_almati_252/",
+          "domain": "el.kz",
+          "extraction_accuracy": {
+            "main_text_found": false,
+            "main_text_length": 44,
+            "date_found": false,
+            "extraction_accuracy_score": 0.0
+          },
+          "gpt_judgment": null
+        },
+        {
+          "url": "https://rus.azattyq.org/a/32871809.html",
+          "domain": "rus.azattyq.org",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2395,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 4.5,
+            "confidence": 0.7,
+            "reason": {
+              "description": "The first main‑text selector (`#content > main > div.container`) does not match any element in the DOM, so it captures no article content (critical missing content). The second selector (`#article-content`) correctly locates the article body but also pulls in adjacent UI elements such as the share toolbar and the \"also‑read\" block, which is excessive noise. The date selector references a non‑existent path (`div.row` under `div.container`), so it fails to capture the publication timestamp (critical wrong element). Finally, the selectors rely on specific class names that could change with minor layout updates, adding a small fragility penalty.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 3,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "Selector '#content > main > div.container' matches no element"
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "'#article-content' includes share toolbar and related blocks"
+                  ]
+                },
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "Date selector path does not exist in the DOM"
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selectors depend on specific class names that may change"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 6.0,
+            "date_quality": 2.0,
+            "issues": [
+              "Missing Content: selector '#content > main > div.container' does not match any element",
+              "Excessive Noise: selector '#article-content' captures share toolbar and related blocks",
+              "Wrong Element: date selector points to a non-existent path"
+            ],
+            "suggestions": "Use the stable '#article-content' selector but limit it to article paragraphs, e.g. `#article-content > .wsw p, #article-content > .wsw h2` or `#article-content .content-floated-wrap`. For the date, use a direct path such as `.publishing-details .date time` or `#content .col-publishing-details .date time`."
+          }
+        },
+        {
+          "url": "https://www.zakon.kz/stati/6427518-zemletryaseniya-v-almaty-kazakhstanskiy-seysmolog-vyskazalsya-o-prognozakh-svoikh-kolleg.html",
+          "domain": "www.zakon.kz",
+          "extraction_accuracy": {
+            "main_text_found": false,
+            "main_text_length": 0,
+            "date_found": false,
+            "extraction_accuracy_score": 0.0
+          },
+          "gpt_judgment": {
+            "score": 2.0,
+            "confidence": 0.7,
+            "reason": {
+              "description": "Both main‑text selectors target elements that are not direct children of the #article container, so they return no nodes and miss all article paragraphs, headings and quotes. The date selector suffers from the same problem and therefore does not capture the publication timestamp. No unwanted content is captured, but the selectors fail to locate any relevant data.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 2,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 1,
+                  "max_score": 10,
+                  "issues_count": 4
+                },
+                "robustness": {
+                  "score": 3,
+                  "max_score": 10,
+                  "issues_count": 2
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 2,
+                  "penalty": -4.0,
+                  "examples": [
+                    "'#article > .article__content' does not match any element in the DOM.",
+                    "'#article > .description' also returns no nodes."
+                  ]
+                },
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 2,
+                  "penalty": -4.0,
+                  "examples": [
+                    "Both main‑text selectors miss the actual article body inside <div class=\"content\">.",
+                    "The date selector fails to capture the publication time."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 1.5,
+            "date_quality": 1.0,
+            "issues": [
+              "Selector '#article > .article__content' does not match any element.",
+              "Selector '#article > .description' does not match any element.",
+              "Main text selectors miss the <div class=\"content\"> containing paragraphs, headings and quotes.",
+              "Date selector '#article > .article__dateline > time' fails to capture the publication timestamp."
+            ],
+            "suggestions": "Use selectors that target the actual content container: e.g., '#article .article__content .content' or simply '#article .content'. For the date, use '#article .article__dateline time' or '#article .date'. These are more robust and will capture all relevant text while avoiding navigation or ad elements."
+          }
+        },
+        {
+          "url": "https://dknews.kz/ru/v-strane/376600-v-almaty-proizoshlo-zemletryasenie-magnitudoy-6-7",
+          "domain": "dknews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2148,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 6.8,
+            "confidence": 0.7,
+            "reason": {
+              "description": "The provided selectors target the article body and date, but they suffer from several problems. The first selector (.newsInfo) captures only metadata (time and view count), missing all textual content – a critical error. The second selector (.postBody > .text) correctly grabs most paragraphs, headings, lists, and tags, yet it also pulls in an ad placeholder inside the article and omits the photo‑credit span that follows the main image. These issues reduce precision (noise) and recall (missing credit). The selectors are fairly specific but rely on a direct child relationship; any change to the DOM hierarchy would break them, indicating moderate fragility.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 7.5,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 8.5,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 8.0,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    ".newsInfo selector captures only metadata (time & views) instead of article text."
+                  ]
+                },
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Photo credit span after the main image is not captured by .postBody > .text."
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    ".postBody > .text includes an ad placeholder div inside the article body."
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Direct child selector (.postBody > .text) may break if DOM hierarchy changes."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 7.5,
+            "date_quality": 10.0,
+            "issues": [
+              "Wrong Element: .newsInfo captures only metadata.",
+              "Missing Content: Photo credit not captured.",
+              "Excessive Noise: Ad placeholder inside article body.",
+              "Fragility: Direct child selector may break on DOM changes."
+            ],
+            "suggestions": "Use a single, robust selector such as '.postBody > .text' and filter out ad elements (e.g., by excluding divs with id starting with 'adfox'). If photo credit is required, add an additional selector like '.mainpic + span' or include it within the text extraction logic."
+          }
+        },
+        {
+          "url": "https://rus.azattyq.org/a/32787857.html",
+          "domain": "rus.azattyq.org",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 6809,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 7.9,
+            "confidence": 0.92,
+            "reason": {
+              "description": "The two provided main‑text selectors perform well overall but each has a distinct drawback. The '#content > main' selector captures the entire article area, including title, date, cover image and share widgets – it is precise enough for most scraping tasks but introduces minor noise (share buttons, media). The '#article-content' selector isolates the body paragraphs and embedded content, offering high precision and robustness; however it omits the introductory paragraph that precedes this div, resulting in a recall loss. The date selector '.publishing-details .published time' correctly targets the publication timestamp with no false positives or missing elements.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8.5,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 7.0,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 9.5,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "#article-content does not include the introductory paragraph before the body"
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "#content > main includes share buttons and cover image that are not part of the article text"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 7.5,
+            "date_quality": 10.0,
+            "issues": [
+              "Missing intro paragraph in '#article-content'",
+              "Unnecessary share widgets and media included by '#content > main'"
+            ],
+            "suggestions": "Use '#article-content' for the body text, but also capture the preceding '.intro' element (e.g., '#content > main .intro') to avoid missing content. The date selector is already optimal."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/almatintsam-prishlo-uvedomlenie-o-zemletryasenii-583905/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2763,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 7.4,
+            "confidence": 0.65,
+            "reason": {
+              "description": "The set of selectors contains a mix of very good and very poor options. The selector `.content_main_text` captures the entire article body with high precision and recall, while the other selectors either miss the main content or add unnecessary noise. The date selector is completely wrong – it targets a non‑existent element (`.articleSection > meta[itemprop='datePublished']`). This critical error reduces the overall score but does not affect the quality of the main text extraction.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "robustness": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 3
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "`.articleSection > meta[itemprop='datePublished']` does not exist in the DOM."
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 3,
+                  "penalty": -1.5,
+                  "examples": [
+                    ".content_main",
+                    ".content_main_meta",
+                    ".content_main_share"
+                  ]
+                },
+                {
+                  "category": "Missing Content",
+                  "severity": "critical",
+                  "count": 6,
+                  "penalty": -12.0,
+                  "examples": [
+                    ".content_main_meta_author",
+                    ".content_main_thumb",
+                    ".content_main_desc",
+                    ".content_main_inner (if used alone)"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9.5,
+            "date_quality": 4.0,
+            "issues": [
+              "Wrong selector for publication date",
+              "Several selectors capture only parts of the article or add noise"
+            ],
+            "suggestions": "Use `.content_main_text` as the sole main‑text selector and replace the date selector with `meta[itemprop='datePublished']` (or a `<time>` element). This will give high precision, recall, and robustness while eliminating unnecessary noise."
+          }
+        },
+        {
+          "url": "https://prg.kz/document/?doc_id=31323760",
+          "domain": "prg.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 1810,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 7.0,
+            "confidence": 0.72,
+            "reason": {
+              "description": "The main selector `#document-31323760` captures the entire article container, which includes the title, toolbar, and action buttons – a moderate amount of unwanted noise but still contains all relevant paragraphs and headings. The date selector `.publish-info > div:nth-child(2) > span:first-letter:capitalize` does not match any element in the provided markup, so it fails to capture the publication date (critical error). Overall precision is good, recall is high, and robustness is acceptable due to stable IDs.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "Date selector does not match any element in the DOM."
+                  ]
+                },
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Main selector includes toolbar and action buttons that are not part of the article body."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.0,
+            "date_quality": 1.0,
+            "issues": [
+              "Date selector does not match any element in the DOM.",
+              "Main selector captures toolbar and action elements, adding noise."
+            ],
+            "suggestions": "Use a more specific selector for the article body (e.g., `#document-31323760 .content-container`) and correct the date selector to target the actual date element, such as `.publish-info span.date` if available."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/poyavilis-dannyie-o-sile-zemletryaseniya-v-almatyi-587244/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 8439,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 6.0,
+            "confidence": 0.8,
+            "reason": {
+              "description": "The three main‑text selectors are inconsistent: `.content_main` and `.content_single` pull a large amount of non‑article content (author block, share buttons, tags), while `.content_main_text` correctly isolates the article body. The date selector points to the breadcrumb text instead of the publication timestamp. Overall precision is moderate, recall is high for the correct selector, but robustness suffers because class names may change.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 2
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 6,
+                  "max_score": 10,
+                  "issues_count": 3
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 2,
+                  "penalty": 2,
+                  "examples": [
+                    ".content_main includes author metadata, share buttons and tags.",
+                    ".content_single contains the entire section with navigation and meta elements."
+                  ]
+                },
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": 2,
+                  "examples": [
+                    "#breadcrumbs li:nth-child(3) span selects the breadcrumb text 'Новости Казахстана' instead of the date."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8.0,
+            "date_quality": 1.5,
+            "issues": [
+              "Selector .content_main captures navigation and metadata, leading to noise.",
+              "Selector #breadcrumbs li:nth-child(3) span selects the breadcrumb text instead of the publication date."
+            ],
+            "suggestions": "Use `.content_main_text` for article body extraction; for the date use the meta tag `meta[itemprop=\"datePublished\"]` or the `<span>` inside the breadcrumbs that contains the timestamp (e.g., `#breadcrumbs li:nth-child(4) span`)."
+          }
+        },
+        {
+          "url": "https://ru.sputnik.kz/20240225/v-almaty-pochuvstvovali-zemletryasenie-42485286.html",
+          "domain": "ru.sputnik.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 1727,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 8.5,
+            "confidence": 0.85,
+            "reason": {
+              "description": "The article body is wrapped in <div class=\"article__body\"> containing multiple <div class=\"article__block\" data-type=\"text\"> and <div class=\"article__block\" data-type=\"quote\"> elements. The selector \".article__block[data-type='text'] .article__text\" correctly captures all paragraph text but misses the quote blocks, leading to a recall penalty. The simple selector \".article__text\" works in this page because no other element uses that class, so precision is high. Both selectors are fairly robust as they rely on stable data‑type attributes and class names, though minor fragility exists if the structure changes.\n\nThe date selector accurately points to <meta itemprop=\"datePublished\"> inside the article meta block; it captures the correct timestamp with no noise or missing content.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9.0,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "recall": {
+                  "score": 4.0,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "robustness": {
+                  "score": 7.5,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Missing Content",
+                  "severity": "medium",
+                  "count": 1,
+                  "penalty": -1.0,
+                  "examples": [
+                    "Quote blocks (data-type='quote') are not selected by the main text selector."
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Selector relies on specific data‑type attribute; a change in markup could break it."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 6.7,
+            "date_quality": 9.3,
+            "issues": [
+              "Missing quote blocks in main text selector",
+              "Minor fragility due to reliance on specific data‑type attribute"
+            ],
+            "suggestions": "Use a broader selector that includes both text and quote blocks, e.g., '.article__block .article__text', or target the container '.article__body' to capture all article content. For date extraction, keep the current meta selector but consider using a more generic path like '.article__meta > meta[itemprop=\"datePublished\"]'."
+          }
+        },
+        {
+          "url": "https://rus.azattyq.org/a/dvuhballnoe-zemletryasenie-proizoshlo-v-almaty-epitsentr-raspolozhen-v-kyrgyzstane/33436461.html",
+          "domain": "rus.azattyq.org",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 1190,
+            "date_found": true,
+            "extraction_accuracy_score": 1.0
+          },
+          "gpt_judgment": {
+            "score": 8.0,
+            "confidence": 0.92,
+            "reason": {
+              "description": "The selector `#article-content` correctly targets the main article body, capturing all paragraphs and headings while excluding navigation, ads, and comments. The second selector `.content-floated-wrap fb-quotable` is syntactically incorrect – it looks for a `<fb-quotable>` element inside an element with class `content-floated-wrap`, but such a tag does not exist in the DOM, resulting in no matches (Wrong Element). The date selector `time[pubdate]` accurately points to the publication timestamp and contains no extraneous data.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 9.0,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 9.5,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 8.0,
+                  "max_score": 10,
+                  "issues_count": 1
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": 2.0,
+                  "examples": [
+                    "`.content-floated-wrap fb-quotable` selector does not match any element in the DOM."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 9.0,
+            "date_quality": 10.0,
+            "issues": [
+              "Wrong Element: `.content-floated-wrap fb-quotable` selector does not match any element."
+            ],
+            "suggestions": "Use the existing `#article-content` selector alone, or correct the second selector to `.content-floated-wrap.fb-quotable` if you need a class‑based reference. Ensure selectors avoid page‑specific IDs when possible for better robustness."
+          }
+        },
+        {
+          "url": "https://www.gov.kz/memleket/entities/emer/press/news/details/719139?lang=ru",
+          "domain": "www.gov.kz",
+          "extraction_accuracy": {
+            "main_text_found": false,
+            "main_text_length": 0,
+            "date_found": false,
+            "extraction_accuracy_score": 0.0
+          },
+          "gpt_judgment": {
+            "score": 0.0,
+            "confidence": 1.0,
+            "reason": {
+              "description": "All provided selectors reference an element with id \"h1\" (e.g., '#h1 > img'), but the HTML contains a plain <h1> tag without any id attribute. Consequently, none of the selectors match any node in the DOM, resulting in zero captured content for both main text and date. The date selector also uses the non‑standard :contains() pseudo‑class, which is not supported by standard CSS selectors used in most scraping libraries.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 0,
+                  "max_score": 10,
+                  "issues_count": 7
+                },
+                "recall": {
+                  "score": 0,
+                  "max_score": 10,
+                  "issues_count": 7
+                },
+                "robustness": {
+                  "score": 0,
+                  "max_score": 10,
+                  "issues_count": 7
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 7,
+                  "penalty": -14.0,
+                  "examples": [
+                    "#h1 > img (no element with id=\"h1\")",
+                    "#h1 + p (no sibling <p> after a non‑existent #h1)",
+                    "#h1 + p + p",
+                    "#h1 + p + p + p",
+                    "#h1 + p + p + p + p",
+                    "#h1 + p + p + p + p + p",
+                    "#h1 > img ~ p:contains('04 марта 2024г.') (invalid selector and no #h1)"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 0.0,
+            "date_quality": 0.0,
+            "issues": [
+              "Selector '#h1 > img' does not match any element in the DOM.",
+              "All sibling selectors (#h1 + p, #h1 + p + p, …) rely on a non‑existent #h1 and capture nothing.",
+              "Date selector uses :contains() which is unsupported by standard CSS and also targets a missing #h1."
+            ],
+            "suggestions": "Use selectors that target the actual structure: e.g., 'h1 + img' for the image, 'div > p' or '.article-content p' for paragraphs, and locate the date within the first paragraph using text extraction or regex. Avoid hard‑coded IDs unless they are guaranteed to exist."
+          }
+        },
+        {
+          "url": "https://kndc.kz/index.php/home-ru/kndcnews/227-operativnaya-informatsiya-o-proizoshedshem-zemletryasenii-23-01-2024-g",
+          "domain": "kndc.kz",
+          "extraction_accuracy": {
+            "main_text_found": false,
+            "main_text_length": 0,
+            "date_found": false,
+            "extraction_accuracy_score": 0.0
+          },
+          "gpt_judgment": {
+            "score": 7.5,
+            "confidence": 0.6,
+            "reason": {
+              "description": "The selector set contains one correct article‑body selector (`#jsn-mainbody-content > div.com-content > div.article > div.jsn-article-content`) that captures all paragraphs, images and headings with minimal noise. However, the first selector in the list targets the breadcrumbs element instead of the article content, introducing unwanted navigation text and missing the main body if it were chosen. The date selector uses a fragile `p:nth-child(4)` path and points to a `<strong>` inside that paragraph; this is brittle and may not always locate the publication timestamp. Consequently, precision is high for the correct selector but lowered by the breadcrumb selector, recall remains high because the article body is fully captured by the second selector, while robustness suffers due to the fragile date selector.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 8,
+                  "max_score": 10,
+                  "issues_count": 1
+                },
+                "recall": {
+                  "score": 9,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 7,
+                  "max_score": 10,
+                  "issues_count": 2
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Wrong Element",
+                  "severity": "medium",
+                  "count": 2,
+                  "penalty": -2.0,
+                  "examples": [
+                    "First main_text_selector targets breadcrumbs instead of article content.",
+                    "Date selector points to a <strong> inside the wrong paragraph."
+                  ]
+                },
+                {
+                  "category": "Fragility",
+                  "severity": "minor",
+                  "count": 1,
+                  "penalty": -0.5,
+                  "examples": [
+                    "Date selector uses `p:nth-child(4)` which is brittle if the DOM changes."
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 8,
+            "date_quality": 2,
+            "issues": [
+              "Wrong element selected by first main_text_selector (breadcrumbs)",
+              "Fragile date selector using nth-child",
+              "Date selector points to wrong <strong> element"
+            ],
+            "suggestions": "Use only the `#jsn-mainbody-content > div.com-content > div.article > div.jsn-article-content` selector for article body and discard the breadcrumbs selector. For the date, replace the fragile nth-child path with a more robust expression such as `.jsn-article-content p:first-of-type strong` or extract the timestamp by parsing the first paragraph's text."
+          }
+        },
+        {
+          "url": "https://tengrinews.kz/kazakhstan_news/opoveschenie-zemletryasenii-almatyi-dchs-soobschili-583908/",
+          "domain": "tengrinews.kz",
+          "extraction_accuracy": {
+            "main_text_found": true,
+            "main_text_length": 2891,
+            "date_found": false,
+            "extraction_accuracy_score": 0.7
+          },
+          "gpt_judgment": {
+            "score": 3.5,
+            "confidence": 0.65,
+            "reason": {
+              "description": "The provided selectors pull a large portion of the article container, including author metadata, share widgets, thumbnails and ads. This introduces significant noise (Excessive Noise). The date selector targets the third breadcrumb link which contains the category name rather than the publication timestamp (Wrong Element). While the body paragraphs are captured, the overall precision is low and robustness suffers from reliance on brittle class names and an nth‑child selector.",
+              "evaluation_criteria": {
+                "precision": {
+                  "score": 2.0,
+                  "max_score": 10,
+                  "issues_count": 7
+                },
+                "recall": {
+                  "score": 8.5,
+                  "max_score": 10,
+                  "issues_count": 0
+                },
+                "robustness": {
+                  "score": 5.0,
+                  "max_score": 10,
+                  "issues_count": 2
+                }
+              },
+              "error_breakdown": [
+                {
+                  "category": "Excessive Noise",
+                  "severity": "medium",
+                  "count": 7,
+                  "penalty": -7.0,
+                  "examples": [
+                    ".content_main_meta (author & stats)",
+                    ".content_main_thumb (image + ad placeholder)",
+                    ".content_main_desc (intro paragraph)",
+                    ".content_main_inner > .content_main_share (share buttons)",
+                    ".content_main_text (article body) – correct part but mixed with other elements",
+                    ".content_main_meta_author (author photo & name)",
+                    ".content_main_meta_stat (views, comments)"
+                  ]
+                },
+                {
+                  "category": "Wrong Element",
+                  "severity": "critical",
+                  "count": 1,
+                  "penalty": -2.0,
+                  "examples": [
+                    "#breadcrumbs > li:nth-child(3) > a > span – selects the breadcrumb label \"Новости Казахстана\" instead of the date"
+                  ]
+                }
+              ]
+            },
+            "main_text_quality": 4.5,
+            "date_quality": 1.0,
+            "issues": [
+              "Selector .content_main captures navigation, author info and share widgets.",
+              "Date selector points to breadcrumb text rather than publication timestamp."
+            ],
+            "suggestions": "Use only the article body container (.content_main_text) for main content extraction. For the date, select the meta tag with itemprop=\"datePublished\" or the span inside .single-breadcrumbs that contains the actual date string (e.g., '.single-breadcrumbs > span'). Avoid class names that are shared across multiple components and remove nth-child usage."
+          }
+        }
+      ]
+    }
+  }
+}

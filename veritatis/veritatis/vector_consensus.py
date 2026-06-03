@@ -276,7 +276,8 @@ def calculate_detail_scores(contents: List[str]) -> List[float]:
     min_raw = min(raw_scores)
     max_raw = max(raw_scores)
     if max_raw == min_raw:
-        return [1.0] * len(contents)
+        # No signal to distinguish detail; keep this factor neutral.
+        return [0.5] * len(contents)
 
     return [(s - min_raw) / (max_raw - min_raw) for s in raw_scores]
 

@@ -197,8 +197,8 @@ class TestDetailScores:
 
         detail_scores = calculate_detail_scores(contents)
 
-        # All should have score 1.0 (no variation)
-        assert all(score == pytest.approx(1.0) for score in detail_scores)
+        # All should be neutral when there is no variation signal.
+        assert all(score == pytest.approx(0.5) for score in detail_scores)
 
     def test_empty_list(self):
         """Test with empty content list."""

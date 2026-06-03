@@ -4,6 +4,88 @@ Utility scripts for the EarthquakesParser project.
 
 ## Available Scripts
 
+### [compute_credibility.py](compute_credibility.py)
+
+Computes consensus-based credibility scores for all records in Tier 1 Milvus collection.
+
+**Usage:**
+
+```bash
+# Use default parameters (recommended)
+python scripts/compute_credibility.py
+
+# High similarity threshold (stricter grouping)
+python scripts/compute_credibility.py --threshold 0.90
+
+# Require larger groups
+python scripts/compute_credibility.py --min-group-size 5
+
+# Adjust consensus/detail balance
+python scripts/compute_credibility.py --centrality-weight 0.7 --detail-weight 0.3
+
+# Different collection
+python scripts/compute_credibility.py --collection veritatis_tier2_arena
+
+# Verbose logging
+python scripts/compute_credibility.py --verbose
+```
+
+**What it does:**
+
+- Finds groups of similar articles using vector similarity
+- Ranks articles within groups by centrality (consensus)
+- Assigns credibility scores (0-1) based on consensus strength
+- Records without similar neighbors get neutral score (0.5)
+- Updates all credibility_score fields in Milvus
+
+**Parameters:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--collection` | veritatis_tier1_lake | Milvus collection name |
+| `--threshold` | 0.85 | Minimum similarity (0-1) to group records |
+| `--min-group-size` | 2 | Minimum records per group |
+| `--centrality-weight` | 0.6 | Weight for consensus |
+| `--detail-weight` | 0.4 | Weight for text quality |
+| `--neutral-score` | 0.5 | Score for singleton records |
+| `--verbose` | false | Enable debug logging |
+
+**Example output:**
+
+```text
+======================================================================
+Credibility Score Computation
+======================================================================
+
+Configuration:
+  Collection:          veritatis_tier1_lake
+  Similarity threshold: 0.85
+  Min group size:      2
+  Centrality weight:   0.6
+  Detail weight:       0.4
+  Neutral score:       0.5
+
+======================================================================
+Results
+======================================================================
+
+✓ Computation complete!
+
+Statistics:
+  Total records:         156
+  Groups found:          23
+  Records in groups:     89
+  Records without groups: 67
+  Updated count:         156
+
+  Average group size:    3.9 records
+  Group coverage:        57.1%
+
+✓ Successfully updated 156 credibility scores
+
+======================================================================
+```
+
 ### [bump_version.py](bump_version.py)
 
 Automatically bumps project version and updates CHANGELOG based on conventional commits.
