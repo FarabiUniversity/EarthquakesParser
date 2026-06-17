@@ -89,11 +89,13 @@ env/
 
 # Project specific - generated data files
 !data/README.md
+data/kndc/
 sandbox/data/
 sandbox/[0-9]*/*.py
 sandbox/[0-9]*/*.ipynb
 !sandbox/*/README.md
 output/
+veritatis/.docker-build-cache
 
 # Local configuration overrides
 config/keywords.local.txt

@@ -1,10 +1,27 @@
 """Supabase database utility - low-level database operations."""
 
 import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:  # pragma: no cover
     import pandas as pd
+
+
+def _load_local_env() -> None:
+    """Load Supabase env vars from common repo-local `.env` locations."""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+
+    repo_root = Path(__file__).resolve().parents[3]
+    for env_path in (repo_root / ".env", repo_root / "veritatis" / ".env"):
+        if env_path.exists():
+            load_dotenv(env_path, override=False)
+
+
+_load_local_env()
 
 
 class SupabaseDB:
@@ -79,6 +96,45 @@ class SupabaseDB:
         except Exception as e:
             print(f"Error inserting into {table}: {e}")
             return inserted_ids
+
+    def upsert(
+        self,
+        table: str,
+        data: List[Dict[str, Any]],
+        on_conflict: str,
+        batch_size: int = 100,
+    ) -> List[str]:
+        """Insert or update records in a table.
+
+        Args:
+            table: Table name.
+            data: List of records to upsert.
+            on_conflict: Comma-separated unique column list for conflict resolution.
+            batch_size: Number of records per batch.
+
+        Returns:
+            List of upserted record IDs.
+        """
+        upserted_ids: List[str] = []
+
+        try:
+            for i in range(0, len(data), batch_size):
+                batch = data[i : i + batch_size]
+                response = (
+                    self.client.table(table)
+                    .upsert(batch, on_conflict=on_conflict)
+                    .execute()
+                )
+
+                if response.data:
+                    batch_ids = [str(record["id"]) for record in response.data]
+                    upserted_ids.extend(batch_ids)
+
+            return upserted_ids
+
+        except Exception as e:
+            print(f"Error upserting into {table}: {e}")
+            return upserted_ids
 
     def select(
         self,

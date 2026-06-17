@@ -1,7 +1,24 @@
 """Supabase file storage utility - low-level file operations."""
 
 import os
+from pathlib import Path
 from typing import Optional
+
+
+def _load_local_env() -> None:
+    """Load Supabase env vars from common repo-local `.env` locations."""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+
+    repo_root = Path(__file__).resolve().parents[3]
+    for env_path in (repo_root / ".env", repo_root / "veritatis" / ".env"):
+        if env_path.exists():
+            load_dotenv(env_path, override=False)
+
+
+_load_local_env()
 
 
 class SupabaseFileStorage:

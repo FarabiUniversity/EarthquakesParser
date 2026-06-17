@@ -7,6 +7,7 @@ Complete documentation for the EarthquakesParser project.
 - 📖 **[Main README](../README.md)** - Project overview
 - 🚀 **[Quick Start Guide](QUICK_START.md)** - Get started in 5 minutes
 - 🏗️ **[Project Structure](PROJECT_STRUCTURE.md)** - Architecture and design
+- 📡 **[KNDC Parser Guide](KNDC_PARSER.md)** - KNDC ingestion flow and Supabase tables
 - 🤝 **[Contributing](CONTRIBUTING.md)** - Contribution guidelines
 - 📦 **[Release Policy](RELEASE_POLICY.md)** - Versioning and releases
 - ✅ **[Setup Complete](SETUP_COMPLETE.md)** - Post-setup guide
@@ -92,6 +93,7 @@ docs/
 ├── README.md                   # This file
 ├── QUICK_START.md              # 5-minute getting started
 ├── PROJECT_STRUCTURE.md        # Architecture details
+├── KNDC_PARSER.md              # KNDC ingestion guide
 ├── CONTRIBUTING.md             # Developer guidelines
 ├── RELEASE_POLICY.md           # Release process
 ├── SETUP_COMPLETE.md           # Post-setup guide
