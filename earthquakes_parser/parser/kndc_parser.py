@@ -11,12 +11,13 @@ import secrets
 import time
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
 from bs4 import BeautifulSoup
+
+from earthquakes_parser.parser.kndc_supabase import KndcSupabaseStore
+from earthquakes_parser.storage.supabase.database import SupabaseDB
 
 logger = logging.getLogger(__name__)
 
@@ -70,14 +71,15 @@ class KndcParser:
     def __init__(
         self,
         output_dir: str = "data/kndc",
+        db: Optional[SupabaseDB] = None,
         min_delay: float = 0.5,
         max_delay: float = 1.5,
         max_retries: int = 3,
         timeout: int = 15,
     ) -> None:
         """Initialize the parser and its HTTP session."""
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir = output_dir
+        self.storage = KndcSupabaseStore(db=db)
 
         self._min_delay = float(min_delay)
         self._max_delay = float(max_delay)
@@ -208,32 +210,21 @@ class KndcParser:
 
         return rec
 
-    def save(self, record: KndcRecord, filename: Optional[str] = None) -> Path:
-        """Persist a record snapshot to `output_dir` and return the file path."""
-        ts = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
-        nid = "unknown"
-        try:
-            if "news=" in record.source_url:
-                nid = record.source_url.split("news=")[-1]
-        except Exception:
-            nid = "unknown"
-
-        name = filename or f"kndc_{nid}_{ts}.json"
-        out = self.output_dir / name
-        with out.open("w", encoding="utf-8") as fh:
-            json.dump(record.to_dict(), fh, ensure_ascii=False, indent=2)
-        return out
+    def save(self, record: KndcRecord) -> Dict[str, Any]:
+        """Persist a record in Supabase and return the stored row."""
+        stored = self.storage.upsert_news(record)
+        logger.info("Upserted KNDC newsid=%s into Supabase", stored.get("newsid"))
+        return stored
 
     def run(self, newsids: List[int], save: bool = True) -> List[KndcRecord]:
-        """Fetch a batch of `newsids` and optionally save them to disk."""
+        """Fetch a batch of `newsids` and optionally ingest them into Supabase."""
         out: List[KndcRecord] = []
         for nid in newsids:
             rec = self.fetch_by_newsid(nid)
             if rec:
                 out.append(rec)
                 if save:
-                    p = self.save(rec)
-                    logger.info("Saved %s", p)
+                    self.save(rec)
             else:
                 logger.debug("Skipping empty KNDC newsid=%s", nid)
             time.sleep(self._delay_seconds(self._min_delay, self._max_delay))
@@ -251,10 +242,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--newsids", default="3191", help="Comma-separated news ids to fetch"
     )
-    parser.add_argument("--output", default="data/kndc", help="Output directory")
     args = parser.parse_args()
 
     ids = [int(x.strip()) for x in args.newsids.split(",") if x.strip()]
-    kp = KndcParser(output_dir=args.output)
+    kp = KndcParser()
     recs = kp.run(ids)
     print(f"Fetched {len(recs)} record(s)")

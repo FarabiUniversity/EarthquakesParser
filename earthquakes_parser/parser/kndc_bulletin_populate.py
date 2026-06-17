@@ -1,35 +1,33 @@
-"""Backfill KNDC bulletin listing into local snapshot files."""
+"""Backfill KNDC bulletin listing into Supabase."""
 
 from __future__ import annotations
 
 import logging
 import secrets
 import time
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from earthquakes_parser.parser.kndc_bulletin_shared import LIST_URL as BULLETIN_LIST_URL
 from earthquakes_parser.parser.kndc_bulletin_shared import (
     create_session,
     fetch_listing,
-    latest_snapshot_for_event,
     normalize_event,
-    save_snapshot,
-    snapshot_exists,
 )
+from earthquakes_parser.parser.kndc_supabase import KndcSupabaseStore
+from earthquakes_parser.storage.supabase.database import SupabaseDB
 
 logger = logging.getLogger(__name__)
 
 
 # python -m earthquakes_parser.parser.kndc_bulletin_populate
 class KndcBulletinPopulator:
-    """Backfill KNDC bulletin listing into local snapshots.
+    """Backfill KNDC bulletin listing into Supabase.
 
-    This class fetches the bulletin listing and writes per-event snapshots
-    containing `parsed` and `enriched_text` into `output_dir`.
+    This class fetches the bulletin listing and upserts per-event rows with
+    `parsed` and `enriched_text`.
 
     It intentionally scans the full listing on every run so it can fill gaps
-    (e.g., if some local snapshot files were deleted).
+    while remaining idempotent.
     """
 
     LIST_URL = BULLETIN_LIST_URL
@@ -37,15 +35,16 @@ class KndcBulletinPopulator:
     def __init__(
         self,
         output_dir: str = "data/kndc",
+        db: Optional[SupabaseDB] = None,
         limit: int = 50000,
         timeout: int = 15,
     ) -> None:
         """Initialize the bulletin listing backfill."""
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir = output_dir
         self.limit = int(limit)
         self.timeout = int(timeout)
         self._session = create_session()
+        self.storage = KndcSupabaseStore(db=db)
 
     def _fetch_listing(
         self, desc: bool = False, start: int = 0
@@ -79,19 +78,16 @@ class KndcBulletinPopulator:
 
     def _save_snapshot(
         self, event_id: int, parsed: Dict[str, Any], enriched_text: str
-    ) -> Path:
-        return save_snapshot(self.output_dir, event_id, parsed, enriched_text)
+    ) -> Dict[str, Any]:
+        return self.storage.upsert_bulletin(event_id, parsed, enriched_text)
 
     def _snapshot_exists(self, event_id: int) -> bool:
-        return snapshot_exists(self.output_dir, event_id)
-
-    def _latest_snapshot_for_event(self, event_id: int) -> Optional[Path]:
-        return latest_snapshot_for_event(self.output_dir, event_id)
+        return self.storage.bulletin_exists(event_id)
 
     def run_backfill(self) -> int:
         """Run a one-shot backfill across the entire listing.
 
-        Returns the number of newly written snapshot files.
+        Returns the number of newly upserted bulletin rows.
         """
         processed = 0
         start = 0
@@ -114,8 +110,11 @@ class KndcBulletinPopulator:
                     continue
 
                 parsed, enriched = self._normalize(event)
-                p = self._save_snapshot(eid, parsed, enriched)
-                logger.info("Saved bulletin snapshot %s", p)
+                stored = self._save_snapshot(eid, parsed, enriched)
+                logger.info(
+                    "Upserted bulletin event_id=%s into Supabase",
+                    stored.get("event_id"),
+                )
                 processed += 1
                 time.sleep(self._delay_seconds(0.01, 0.1))
 
@@ -130,4 +129,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     pop = KndcBulletinPopulator()
     n = pop.run_backfill()
-    print(f"Processed {n} bulletin events")
+    print(f"Upserted {n} bulletin events")

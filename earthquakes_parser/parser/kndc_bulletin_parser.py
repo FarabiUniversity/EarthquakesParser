@@ -1,24 +1,21 @@
 """Hourly KNDC bulletin listing parser.
 
-Fetches KNDC bulletin listing rows and persists per-event snapshots.
+Fetches KNDC bulletin listing rows and ingests per-event snapshots into Supabase.
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from earthquakes_parser.parser.kndc_bulletin_shared import LIST_URL as BULLETIN_LIST_URL
 from earthquakes_parser.parser.kndc_bulletin_shared import (
     create_session,
     fetch_listing,
-    latest_snapshot_for_event,
     normalize_event,
-    save_snapshot,
-    snapshot_exists,
 )
+from earthquakes_parser.parser.kndc_supabase import KndcSupabaseStore
+from earthquakes_parser.storage.supabase.database import SupabaseDB
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +23,8 @@ logger = logging.getLogger(__name__)
 class KndcBulletinHourlyParser:
     """Hourly parser for the KNDC bulletin listing.
 
-    Fetches the latest listing (descending epochtime) and writes new bulletins
-    as snapshots with `parsed` and `enriched_text`. It keeps a cursor file for
-    new-record discovery, mirroring the `kndc_parser` flow.
+    Fetches the latest listing (descending epochtime) and upserts new bulletins
+    into Supabase with `parsed` and `enriched_text`.
     """
 
     LIST_URL = BULLETIN_LIST_URL
@@ -36,16 +32,16 @@ class KndcBulletinHourlyParser:
     def __init__(
         self,
         output_dir: str = "data/kndc",
+        db: Optional[SupabaseDB] = None,
         limit: int = 25,
         timeout: int = 15,
     ) -> None:
         """Initialize the hourly bulletin parser."""
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir = output_dir
         self.limit = int(limit)
         self.timeout = int(timeout)
         self._session = create_session()
-        self._next_id_file = self.output_dir / "bulletin_next_id.txt"
+        self.storage = KndcSupabaseStore(db=db)
 
     def _fetch_listing(self) -> List[Dict[str, Any]]:
         return fetch_listing(
@@ -67,70 +63,20 @@ class KndcBulletinHourlyParser:
             return None
         return eid if eid > 0 else None
 
-    def _read_snapshot_event_id(self, path: Path) -> Optional[int]:
-        try:
-            with path.open("r", encoding="utf-8") as fh:
-                payload = json.load(fh)
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.debug("Skipping unreadable snapshot %s: %s", path, exc)
-            return None
-
-        if not isinstance(payload, dict):
-            return None
-
-        parsed = payload.get("parsed", {})
-        if not isinstance(parsed, dict):
-            return None
-
-        return self._parse_event_id(parsed.get("event_id"))
-
     def _load_next_id(self) -> int:
-        if not self._next_id_file.exists():
-            bootstrapped = self._bootstrap_next_id_from_snapshots()
-            if bootstrapped is not None:
-                self._save_next_id(bootstrapped)
-                logger.info(
-                    "Bootstrapped bulletin next_id=%d from existing snapshots",
-                    bootstrapped,
-                )
-                return bootstrapped
-            return 1
-        try:
-            value = self._next_id_file.read_text(encoding="utf-8").strip()
-            return int(value) if value else 1
-        except Exception:
-            return 1
-
-    def _bootstrap_next_id_from_snapshots(self) -> Optional[int]:
-        max_event_id: Optional[int] = None
-        for path in self.output_dir.glob("kndc_bulletin_*.json"):
-            event_id = self._read_snapshot_event_id(path)
-            if event_id is None:
-                continue
-            if max_event_id is None or event_id > max_event_id:
-                max_event_id = event_id
-
-        if max_event_id is None:
-            return None
-
-        return max_event_id + 1
-
-    def _save_next_id(self, value: int) -> None:
-        self._next_id_file.write_text(str(int(value)), encoding="utf-8")
+        latest_event_id = self.storage.latest_event_id()
+        return 1 if latest_event_id is None else latest_event_id + 1
 
     def _save_snapshot(
         self, event_id: int, parsed: Dict[str, Any], enriched_text: str
-    ) -> Path:
-        return save_snapshot(self.output_dir, event_id, parsed, enriched_text)
+    ) -> Dict[str, Any]:
+        return self.storage.upsert_bulletin(event_id, parsed, enriched_text)
 
     def _snapshot_exists(self, event_id: int) -> bool:
-        return snapshot_exists(self.output_dir, event_id)
-
-    def _latest_snapshot_for_event(self, event_id: int) -> Optional[Path]:
-        return latest_snapshot_for_event(self.output_dir, event_id)
+        return self.storage.bulletin_exists(event_id)
 
     def run_once(self, max_per_run: int = 25) -> int:
-        """Fetch the latest bulletin listing once and save new snapshots."""
+        """Fetch the latest bulletin listing once and upsert new rows."""
         logger.info("Starting bulletin probe")
         listing = self._fetch_listing()
         if not listing:
@@ -172,11 +118,11 @@ class KndcBulletinHourlyParser:
         logger.info("Discovered %d new bulletin id(s): %s", len(new_ids), new_ids)
 
         for eid, parsed, enriched in found:
-            p = self._save_snapshot(eid, parsed, enriched)
-            logger.info("Saved bulletin snapshot %s", p)
+            stored = self._save_snapshot(eid, parsed, enriched)
+            logger.info(
+                "Upserted bulletin event_id=%s into Supabase", stored.get("event_id")
+            )
 
-        self._save_next_id(max(new_ids) + 1)
-        logger.info("Advanced bulletin next_id to %d", max(new_ids) + 1)
         return len(found)
 
     def run(self, max_per_run: int = 25) -> int:
@@ -188,4 +134,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     kp = KndcBulletinHourlyParser()
     n = kp.run_once()
-    print(f"Saved {n} new bulletin(s)")
+    print(f"Upserted {n} new bulletin(s)")

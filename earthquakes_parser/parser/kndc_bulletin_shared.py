@@ -12,8 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Tuple, cast
 
 import requests
 from bs4 import BeautifulSoup
@@ -132,39 +131,3 @@ def normalize_event(event: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
     ).strip()
 
     return parsed, enriched_text
-
-
-def latest_snapshot_for_event(output_dir: Path, event_id: int) -> Optional[Path]:
-    """Return the latest snapshot file for an event id, if present."""
-    matches = sorted(output_dir.glob(f"kndc_bulletin_{int(event_id)}_*.json"))
-    return matches[-1] if matches else None
-
-
-def snapshot_exists(output_dir: Path, event_id: int) -> bool:
-    """Return True if there is at least one snapshot file for an event id."""
-    return latest_snapshot_for_event(output_dir, event_id) is not None
-
-
-def save_snapshot(
-    output_dir: Path,
-    event_id: int,
-    parsed: Dict[str, Any],
-    enriched_text: str,
-) -> Path:
-    """Save a normalized bulletin snapshot (idempotent for an existing event_id)."""
-    existing = latest_snapshot_for_event(output_dir, event_id)
-    if existing is not None:
-        logger.info("Skipping duplicate bulletin event_id=%d", event_id)
-        return existing
-
-    ts = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
-    name = f"kndc_bulletin_{event_id}_{ts}.json"
-    out = output_dir / name
-    payload = {
-        "parsed": parsed,
-        "enriched_text": enriched_text,
-        "raw": parsed.get("raw"),
-    }
-    with out.open("w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False, indent=2, default=str)
-    return out

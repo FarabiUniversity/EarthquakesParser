@@ -14,17 +14,14 @@ from __future__ import annotations
 import logging
 import secrets
 import time
-from pathlib import Path
-from typing import List, Set
+from typing import List
 
 from earthquakes_parser.parser.kndc_bulletin_parser import KndcBulletinHourlyParser
 from earthquakes_parser.parser.kndc_parser import KndcParser, KndcRecord
+from earthquakes_parser.parser.kndc_supabase import KndcSupabaseStore
+from earthquakes_parser.storage.supabase.database import SupabaseDB
 
 logger = logging.getLogger(__name__)
-
-
-SEEN_FILE = Path("data/kndc/seen_ids.txt")
-NEXT_ID_FILE = Path("data/kndc/next_id.txt")
 
 
 def _delay_seconds(min_delay: float, max_delay: float) -> float:
@@ -33,42 +30,6 @@ def _delay_seconds(min_delay: float, max_delay: float) -> float:
     span = max_delay - min_delay
     jitter = secrets.randbelow(1_000_000) / 1_000_000
     return min_delay + (span * jitter)
-
-
-def load_seen() -> Set[int]:
-    """Load the set of already-seen `newsid` values from disk."""
-    SEEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-    if not SEEN_FILE.exists():
-        return set()
-    try:
-        with SEEN_FILE.open("r", encoding="utf-8") as fh:
-            return {int(line.strip()) for line in fh if line.strip()}
-    except Exception:
-        return set()
-
-
-def save_seen(seen: Set[int]) -> None:
-    """Persist the set of seen ids to disk."""
-    with SEEN_FILE.open("w", encoding="utf-8") as fh:
-        for i in sorted(seen):
-            fh.write(f"{i}\n")
-
-
-def load_next_id() -> int:
-    """Load the next `newsid` cursor from disk."""
-    if not NEXT_ID_FILE.exists():
-        return 1
-    try:
-        value = NEXT_ID_FILE.read_text(encoding="utf-8").strip()
-        return int(value) if value else 1
-    except Exception:
-        return 1
-
-
-def save_next_id(v: int) -> None:
-    """Persist the next `newsid` cursor to disk."""
-    NEXT_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
-    NEXT_ID_FILE.write_text(str(int(v)), encoding="utf-8")
 
 
 def probe_new_ids(
@@ -114,24 +75,25 @@ def run_scheduler(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
 
-    kp = KndcParser(output_dir=output_dir)
+    db = SupabaseDB()
+    storage = KndcSupabaseStore(db=db)
+    kp = KndcParser(output_dir=output_dir, db=db)
 
     # hourly bulletin parser (runs each scheduler cycle; writes local snapshots)
-    bp = KndcBulletinHourlyParser(output_dir=output_dir, limit=25)
+    bp = KndcBulletinHourlyParser(output_dir=output_dir, db=db, limit=25)
 
     while True:
         try:
-            seen = load_seen()
-            next_id = load_next_id()
+            next_id = storage.latest_newsid() or 1
 
-            logger.info("Starting probe. next_id=%s seen=%d", next_id, len(seen))
+            logger.info("Starting probe. next_id=%s", next_id)
 
             # Run hourly bulletin parser first to capture any new bulletins
             try:
                 new_bulletins = bp.run_once()
                 if new_bulletins:
                     logger.info(
-                        "Hourly bulletin parser saved %d new bulletin(s)", new_bulletins
+                        "Hourly bulletin parser upserted %d bulletin(s)", new_bulletins
                     )
             except Exception:
                 logger.exception("Bulletin parser error")
@@ -139,22 +101,17 @@ def run_scheduler(
             discovered, next_id, advanced = probe_new_ids(
                 kp, next_id, max_per_run=max_per_run
             )
-            save_next_id(next_id)
-
-            # Deduplicate and keep only those not seen before
-            new_records = [(nid, rec) for nid, rec in discovered if nid not in seen]
-
-            if new_records:
-                new_ids = [nid for nid, _ in new_records]
+            if discovered:
+                new_ids = [nid for nid, _ in discovered]
                 logger.info("Discovered %d new id(s): %s", len(new_ids), new_ids)
                 records = []
-                for _nid, rec in new_records:
+                for _nid, rec in discovered:
                     records.append(rec)
-                    p = kp.save(rec)
-                    logger.info("Saved %s", p)
-                seen.update(new_ids)
-                save_seen(seen)
-                logger.info("Saved %d record(s)", len(records))
+                    stored = kp.save(rec)
+                    logger.info(
+                        "Upserted KNDC newsid=%s into Supabase", stored.get("newsid")
+                    )
+                logger.info("Upserted %d record(s)", len(records))
             elif not advanced:
                 logger.info(
                     "No records in current 25id window; retrying the same ids next run"
