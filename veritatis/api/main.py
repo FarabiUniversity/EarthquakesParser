@@ -1,6 +1,8 @@
 """Main entry point for the veritatis API using FastAPI with relevance filtering."""
 
+import json
 import logging
+import pathlib
 import time
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
@@ -291,21 +293,28 @@ class FactCheckResponse(BaseModel):
 
 @app.post("/fact-check", response_model=FactCheckResponse)
 async def fact_check_endpoint(request: FactCheckRequest):
-    """Run the RAG fact-checker against the Tier 2 Milvus collection.
+    """Run the ReAct fact-checker (Gemma 4) against Tier 1 and Tier 2 Milvus collections.
 
-    Accepts a natural-language ``claim``, retrieves relevant earthquake
-    records via vector similarity, and returns a truthfulness score (0-1)
-    with reasoning and source domains.
+    Accepts a natural-language ``claim``. A LangGraph ReAct agent calls
+    ``retrieve_tier1`` and ``retrieve_tier2`` tools, then produces a
+    truthfulness score (0-1) with reasoning and source domains.
+
+    **Source tiers and scoring weight**
+
+    | Tier   | Sources                         | Weight in score          |
+    |--------|---------------------------------|--------------------------|
+    | Tier 1 | Raw / unverified                | Low — indirect only      |
+    | Tier 2 | Credible (credibility >= 0.7)   | High — primary evidence  |
 
     **Score interpretation**
 
-    | Range     | Meaning                                     |
-    |-----------|---------------------------------------------|
-    | 0.8 – 1.0 | Strongly supported by credible records      |
-    | 0.6 – 0.8 | Moderately supported                        |
-    | 0.4 – 0.6 | Uncertain — mixed signals or sparse data    |
-    | 0.2 – 0.4 | Weakly supported                            |
-    | 0.0 – 0.2 | Contradicted or entirely unsupported        |
+    | Range     | Meaning                                                      |
+    |-----------|--------------------------------------------------------------|
+    | 0.8 – 1.0 | Strongly supported — tier2 hits with distance >= 0.6        |
+    | 0.6 – 0.8 | Moderately supported                                         |
+    | 0.4 – 0.6 | Uncertain — mixed signals, tier1 only, or sparse data        |
+    | 0.2 – 0.4 | Weak support — few or low-similarity records                 |
+    | 0.0 – 0.2 | Contradicted or entirely unsupported                         |
     """
     try:
         result: FactCheckResult = fact_check(request.claim)
@@ -318,6 +327,124 @@ async def fact_check_endpoint(request: FactCheckRequest):
         score=result.score,
         reasoning=result.reasoning,
         sources=result.sources,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fact-check test-runner endpoint
+# ---------------------------------------------------------------------------
+
+_DATASET_PATH = pathlib.Path(__file__).resolve().parent.parent / "tests" / "claims_dataset.json"
+
+
+class RunTestsRequest(BaseModel):
+    """Request body for POST /fact-check/run-tests."""
+
+    limit: Optional[int] = None
+
+
+class LabelStats(BaseModel):
+    total: int
+    passed: int
+    avg_score: float
+
+
+class TestDetail(BaseModel):
+    claim: str
+    label: str
+    score: float
+    passed: bool
+
+
+class RunTestsResponse(BaseModel):
+    total: int
+    passed: int
+    failed: int
+    accuracy: float
+    by_label: Dict[str, LabelStats]
+    details: List[TestDetail]
+
+
+@app.post("/fact-check/run-tests", response_model=RunTestsResponse)
+async def run_tests(request: RunTestsRequest):
+    """Run fact-checker against the built-in test dataset and return accuracy metrics.
+
+    Loads ``tests/claims_dataset.json``, runs each case through ``fact_check()``,
+    and compares the resulting score against ``expected_score_min``/``expected_score_max``.
+
+    **Request**
+
+    ```json
+    { "limit": 100 }
+    ```
+
+    ``limit`` caps the number of cases to evaluate (default: all 100).
+
+    **Response fields**
+
+    - ``total`` / ``passed`` / ``failed`` / ``accuracy`` — overall counters
+    - ``by_label`` — breakdown by ``true`` / ``partially_true`` / ``fake``
+    - ``details`` — per-claim results with score and pass/fail flag
+    """
+    if not _DATASET_PATH.exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f"Dataset not found: {_DATASET_PATH}",
+        )
+
+    with _DATASET_PATH.open() as fh:
+        dataset: List[Dict[str, Any]] = json.load(fh)
+
+    if request.limit is not None and request.limit > 0:
+        dataset = dataset[: request.limit]
+
+    details: List[TestDetail] = []
+    label_buckets: Dict[str, Dict[str, Any]] = {}
+
+    for case in dataset:
+        claim: str = case["claim"]
+        label: str = case["label"]
+        score_min: float = float(case["expected_score_min"])
+        score_max: float = float(case["expected_score_max"])
+
+        try:
+            fc_result: FactCheckResult = fact_check(claim)
+            score = fc_result.score
+        except Exception as exc:
+            logger.error("fact_check failed for claim %r: %s", claim[:60], exc)
+            score = 0.0
+
+        passed = score_min <= score <= score_max
+
+        details.append(TestDetail(claim=claim, label=label, score=score, passed=passed))
+
+        bucket = label_buckets.setdefault(label, {"total": 0, "passed": 0, "scores": []})
+        bucket["total"] += 1
+        bucket["scores"].append(score)
+        if passed:
+            bucket["passed"] += 1
+
+    total = len(details)
+    passed_count = sum(1 for d in details if d.passed)
+    failed_count = total - passed_count
+    accuracy = passed_count / total if total > 0 else 0.0
+
+    by_label: Dict[str, LabelStats] = {
+        lbl: LabelStats(
+            total=b["total"],
+            passed=b["passed"],
+            avg_score=sum(b["scores"]) / len(b["scores"]) if b["scores"] else 0.0,
+        )
+        for lbl, b in label_buckets.items()
+    }
+
+    return RunTestsResponse(
+        total=total,
+        passed=passed_count,
+        failed=failed_count,
+        accuracy=accuracy,
+        by_label=by_label,
+        details=details,
     )
 
 
