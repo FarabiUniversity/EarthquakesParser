@@ -114,3 +114,4 @@ dmypy.json
 # Pre-commit
 .pre-commit-cache/
 .env
+data/tengrinews/

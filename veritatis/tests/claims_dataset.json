@@ -1,0 +1,702 @@
+[
+  {
+    "claim": "A magnitude 7.8 earthquake struck Turkey's Kahramanmaraş province on February 6, 2023",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Kahramanmaraş, 06.02.2023, main shock"
+  },
+  {
+    "claim": "The 2011 Tōhoku earthquake in Japan had a magnitude of 9.0 and triggered a devastating tsunami",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Japan 11.03.2011, M9.0"
+  },
+  {
+    "claim": "The 2015 Nepal earthquake measured 7.8 magnitude and killed over 8,000 people",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Gorkha, Nepal 25.04.2015"
+  },
+  {
+    "claim": "A magnitude 7.0 earthquake struck Haiti in January 2010, causing widespread destruction in Port-au-Prince",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Haiti 12.01.2010"
+  },
+  {
+    "claim": "The 2004 Indian Ocean earthquake off the coast of Sumatra, Indonesia had a magnitude of 9.1",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Sumatra 26.12.2004"
+  },
+  {
+    "claim": "China's Sichuan province was struck by a magnitude 7.9 earthquake in May 2008",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Sichuan 12.05.2008"
+  },
+  {
+    "claim": "A magnitude 6.3 earthquake devastated L'Aquila, Italy in April 2009",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "L'Aquila 06.04.2009"
+  },
+  {
+    "claim": "The February 2011 Christchurch earthquake in New Zealand measured 6.3 magnitude",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Christchurch 22.02.2011"
+  },
+  {
+    "claim": "Chile experienced a magnitude 8.8 earthquake in February 2010",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Chile 27.02.2010"
+  },
+  {
+    "claim": "Morocco was hit by a magnitude 6.8 earthquake in September 2023 in the Atlas Mountains region",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Al Haouz, Morocco 08.09.2023"
+  },
+  {
+    "claim": "Afghanistan's Herat province was struck by a magnitude 6.3 earthquake in October 2023",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Herat 07.10.2023"
+  },
+  {
+    "claim": "Indonesia's Cianjur region experienced a magnitude 5.6 earthquake in November 2022",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Cianjur, West Java 21.11.2022"
+  },
+  {
+    "claim": "Turkey's Izmir province was hit by a magnitude 7.0 earthquake in October 2020",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Izmir 30.10.2020"
+  },
+  {
+    "claim": "Albania experienced a magnitude 6.4 earthquake in November 2019 near Durrës",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Durrës, Albania 26.11.2019"
+  },
+  {
+    "claim": "A magnitude 6.4 earthquake struck Puerto Rico in January 2020",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Puerto Rico 07.01.2020"
+  },
+  {
+    "claim": "Haiti was struck by a magnitude 7.2 earthquake in August 2021",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Haiti 14.08.2021"
+  },
+  {
+    "claim": "Mexico City was severely affected by a magnitude 7.1 earthquake in September 2017",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Puebla-Morelos, Mexico 19.09.2017"
+  },
+  {
+    "claim": "Ecuador experienced a magnitude 7.8 earthquake in April 2016 near Muisne",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Ecuador 16.04.2016"
+  },
+  {
+    "claim": "Italy's Amatrice was devastated by a magnitude 6.2 earthquake in August 2016",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Amatrice 24.08.2016"
+  },
+  {
+    "claim": "Japan's Kumamoto prefecture was struck by a magnitude 7.3 earthquake in April 2016",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Kumamoto 16.04.2016"
+  },
+  {
+    "claim": "The 2018 Sulawesi earthquake in Indonesia had a magnitude of 7.5 and caused a deadly tsunami",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Palu, Sulawesi 28.09.2018"
+  },
+  {
+    "claim": "Indonesia's Lombok island was hit by a series of earthquakes in 2018, the strongest measuring magnitude 7.0",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Lombok 05.08.2018"
+  },
+  {
+    "claim": "Papua New Guinea experienced a magnitude 7.5 earthquake in February 2018",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Papua New Guinea 26.02.2018"
+  },
+  {
+    "claim": "A magnitude 7.0 earthquake struck the Philippines in October 2022",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Luzon, Philippines 25.10.2022"
+  },
+  {
+    "claim": "Croatia experienced a magnitude 6.4 earthquake near Petrinja in December 2020",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Petrinja, Croatia 29.12.2020"
+  },
+  {
+    "claim": "Afghanistan's Paktika province was struck by a deadly magnitude 5.9 earthquake in June 2022",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Paktika 22.06.2022"
+  },
+  {
+    "claim": "Solomon Islands experienced a magnitude 7.3 earthquake in November 2022",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Solomon Islands 22.11.2022"
+  },
+  {
+    "claim": "A second major earthquake hit southern Turkey on February 6, 2023, measuring magnitude 7.5",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Elbistan aftershock, same day"
+  },
+  {
+    "claim": "New Zealand's South Island was struck by a magnitude 7.8 earthquake near Kaikōura in November 2016",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Kaikōura 14.11.2016"
+  },
+  {
+    "claim": "A magnitude 6.8 earthquake struck the Spitak region of Armenia in December 1988",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Spitak 07.12.1988"
+  },
+  {
+    "claim": "The 1964 Good Friday earthquake in Alaska had a magnitude of 9.2",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Prince William Sound 27.03.1964"
+  },
+  {
+    "claim": "Vanuatu was hit by a magnitude 7.0 earthquake in November 2022",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Vanuatu 22.11.2022"
+  },
+  {
+    "claim": "The February 2023 Turkey-Syria earthquake killed more than 50,000 people in both countries",
+    "label": "true",
+    "expected_score_min": 0.7,
+    "expected_score_max": 1.0,
+    "notes": "Combined death toll exceeded 50,000"
+  },
+  {
+    "claim": "A magnitude 8.2 earthquake struck Turkey in February 2023",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.8, not 8.2"
+  },
+  {
+    "claim": "The 2011 Tōhoku earthquake in Japan had a magnitude of 8.5",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 9.0"
+  },
+  {
+    "claim": "The 2015 Nepal earthquake killed over 20,000 people",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but exaggerated toll: actual ~8,800"
+  },
+  {
+    "claim": "A magnitude 8.0 earthquake struck Haiti in January 2010",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.0"
+  },
+  {
+    "claim": "The 2004 Indian Ocean earthquake was centered off the coast of Thailand",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong location: epicenter was off Sumatra, Indonesia"
+  },
+  {
+    "claim": "China's Sichuan earthquake in 2008 measured magnitude 8.5",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.9"
+  },
+  {
+    "claim": "The L'Aquila earthquake in Italy in 2009 measured magnitude 7.0",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 6.3"
+  },
+  {
+    "claim": "The Christchurch earthquake in New Zealand in 2011 measured magnitude 7.0",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 6.3"
+  },
+  {
+    "claim": "Morocco was hit by a magnitude 7.5 earthquake in September 2023",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 6.8"
+  },
+  {
+    "claim": "Afghanistan's Herat province was struck by a magnitude 7.0 earthquake in October 2023",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 6.3"
+  },
+  {
+    "claim": "Indonesia's Cianjur earthquake in 2022 measured magnitude 6.5",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 5.6"
+  },
+  {
+    "claim": "Turkey's Izmir earthquake in October 2020 measured magnitude 6.5",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.0"
+  },
+  {
+    "claim": "Albania experienced a magnitude 7.0 earthquake near Durrës in 2019",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 6.4"
+  },
+  {
+    "claim": "A magnitude 7.0 earthquake struck Puerto Rico in January 2020",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 6.4"
+  },
+  {
+    "claim": "Haiti was struck by a magnitude 8.0 earthquake in August 2021",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.2"
+  },
+  {
+    "claim": "Mexico City was affected by a magnitude 8.0 earthquake in September 2017",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.1"
+  },
+  {
+    "claim": "Ecuador experienced a magnitude 8.5 earthquake in April 2016",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.8"
+  },
+  {
+    "claim": "Italy's Amatrice was hit by a magnitude 7.0 earthquake in August 2016",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 6.2"
+  },
+  {
+    "claim": "Japan's Kumamoto earthquake in April 2016 measured magnitude 6.5",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.3"
+  },
+  {
+    "claim": "The 2018 Sulawesi earthquake in Indonesia measured magnitude 8.0",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.5"
+  },
+  {
+    "claim": "Indonesia's Lombok earthquake in 2018 measured magnitude 6.0",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.0"
+  },
+  {
+    "claim": "Papua New Guinea experienced a magnitude 8.0 earthquake in February 2018",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.5"
+  },
+  {
+    "claim": "The Philippines earthquake in October 2022 measured magnitude 8.0",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.0"
+  },
+  {
+    "claim": "Croatia experienced a magnitude 7.0 earthquake near Zagreb in December 2020",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude (was 6.4) and wrong city (was Petrinja not Zagreb)"
+  },
+  {
+    "claim": "Afghanistan's Paktika earthquake in 2022 measured magnitude 7.0",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 5.9"
+  },
+  {
+    "claim": "A magnitude 7.8 earthquake struck Turkey in February 2023 with the epicenter near Istanbul",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong epicenter: was Kahramanmaraş, not Istanbul"
+  },
+  {
+    "claim": "The 2023 Turkey earthquake killed more than 100,000 people",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but exaggerated toll: official count was ~56,000"
+  },
+  {
+    "claim": "The 2004 Indian Ocean earthquake and tsunami occurred in December 2003",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong year: was 2004"
+  },
+  {
+    "claim": "Italy's L'Aquila earthquake in 2009 killed over 1,000 people",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but exaggerated toll: actual ~309"
+  },
+  {
+    "claim": "The 2008 Sichuan earthquake caused widespread destruction in Beijing",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong city: was Sichuan/Chengdu, not Beijing"
+  },
+  {
+    "claim": "Chile experienced a magnitude 9.5 earthquake in February 2010",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: 2010 was 8.8; 9.5 was the 1960 Valdivia quake"
+  },
+  {
+    "claim": "The 2011 Japan earthquake was centered off the coast of Hokkaido",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong location: was off Tōhoku (Sendai)"
+  },
+  {
+    "claim": "The 2015 Nepal earthquake destroyed all major buildings in Kathmandu",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but overstated damage"
+  },
+  {
+    "claim": "Solomon Islands experienced a magnitude 8.5 earthquake in November 2022",
+    "label": "partially_true",
+    "expected_score_min": 0.4,
+    "expected_score_max": 0.7,
+    "notes": "Real event but wrong magnitude: was 7.3"
+  },
+  {
+    "claim": "A magnitude 10.0 earthquake completely destroyed the United Kingdom in 2022",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Impossible magnitude (max ~9.5), UK not a seismic zone"
+  },
+  {
+    "claim": "A magnitude 9.5 earthquake leveled Paris, France in March 2021",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "France has minor seismicity; no such event occurred"
+  },
+  {
+    "claim": "Switzerland was devastated by a magnitude 8.0 earthquake in March 2023",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Switzerland has low seismicity; no such event"
+  },
+  {
+    "claim": "Germany experienced a magnitude 7.5 earthquake in Berlin in 2020",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Germany is not a major seismic zone"
+  },
+  {
+    "claim": "A magnitude 9.0 earthquake struck Moscow, Russia in January 2023",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Moscow is not in a seismic zone"
+  },
+  {
+    "claim": "Toronto, Canada was leveled by a magnitude 8.0 earthquake in 2022",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Toronto is not in an active seismic zone"
+  },
+  {
+    "claim": "Cairo, Egypt was destroyed by a magnitude 8.5 earthquake in November 2023",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Egypt has moderate seismicity but no such event occurred"
+  },
+  {
+    "claim": "The Amazon rainforest experienced a magnitude 9.0 earthquake in 2022",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "The Amazon is on a stable craton; no major seismic activity"
+  },
+  {
+    "claim": "South Africa's Johannesburg was hit by a magnitude 7.8 earthquake in 2021",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "South Africa is not a major seismic zone"
+  },
+  {
+    "claim": "A magnitude 8.0 earthquake struck central London, UK in December 2020",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "UK has very low seismicity"
+  },
+  {
+    "claim": "Sydney, Australia was devastated by a magnitude 7.5 earthquake in 2023",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Australia is on a stable craton; Sydney is not seismically active"
+  },
+  {
+    "claim": "A magnitude 9.0 earthquake struck Madrid, Spain in October 2022",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Spain has low to moderate seismicity; no such event"
+  },
+  {
+    "claim": "Italy experienced a magnitude 9.5 earthquake that destroyed all of Rome in 2023",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Impossible magnitude and no such event in 2023"
+  },
+  {
+    "claim": "The Netherlands experienced a magnitude 8.0 earthquake in 2022",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Netherlands has no significant seismic activity"
+  },
+  {
+    "claim": "A magnitude 7.5 earthquake completely destroyed Warsaw, Poland in 2021",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Poland is not in an active seismic zone"
+  },
+  {
+    "claim": "São Paulo, Brazil was hit by a magnitude 8.5 earthquake in 2023",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Brazil is on a stable craton with very low seismicity"
+  },
+  {
+    "claim": "A magnitude 8.0 earthquake in 2022 caused several Caribbean islands to sink beneath the ocean",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "No such event; islands do not sink from earthquakes like this"
+  },
+  {
+    "claim": "A magnitude 7.5 earthquake struck Edinburgh, Scotland in August 2022",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Scotland has very low seismicity"
+  },
+  {
+    "claim": "Sweden's Stockholm was devastated by a magnitude 7.0 earthquake in 2021",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Scandinavia is on a stable shield; no such event"
+  },
+  {
+    "claim": "A magnitude 8.0 earthquake struck the Sahara Desert in 2023, triggering a massive sandstorm",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "No major seismic zone in the Sahara"
+  },
+  {
+    "claim": "Belgium experienced a devastating magnitude 7.0 earthquake in 2022",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Belgium has very low seismicity"
+  },
+  {
+    "claim": "A magnitude 9.0 earthquake caused the Eiffel Tower to collapse in Paris in 2021",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "No such event; Paris is not seismically active"
+  },
+  {
+    "claim": "Argentina's Buenos Aires was destroyed by a magnitude 8.5 earthquake in 2023",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Buenos Aires is far from the Andean subduction zone; no such event"
+  },
+  {
+    "claim": "A magnitude 7.5 earthquake struck central Africa in 2022, creating a new rift valley",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "No such event; East Africa has seismicity but no 7.5 in 2022"
+  },
+  {
+    "claim": "Denmark was hit by a magnitude 7.0 earthquake causing a national emergency in 2021",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Denmark has no significant seismic activity"
+  },
+  {
+    "claim": "A magnitude 7.0 earthquake struck the Vatican City in November 2022",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "No such event; central Italy has moderate seismicity but no 7.0 in Vatican in 2022"
+  },
+  {
+    "claim": "Finland experienced a devastating magnitude 6.5 earthquake in Helsinki in 2023",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Finland is on the Baltic Shield with very low seismicity"
+  },
+  {
+    "claim": "Los Angeles was completely destroyed by a magnitude 9.0 earthquake on Christmas Day 2022",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "LA is seismically active but no such event occurred in 2022"
+  },
+  {
+    "claim": "A magnitude 8.0 earthquake struck Antarctica in 2022, causing accelerated ice sheet melting",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Antarctica has minor seismicity; no 8.0 on record"
+  },
+  {
+    "claim": "Ireland experienced a magnitude 7.5 earthquake that destroyed Dublin in 2023",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Ireland has very low seismicity"
+  },
+  {
+    "claim": "A magnitude 8.5 earthquake occurred on the Moon in 2023, visibly altering its orbit",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Moonquakes exist but are far weaker; no orbit change"
+  },
+  {
+    "claim": "A magnitude 8.0 earthquake struck Vienna, Austria in July 2022, causing the Danube to reverse flow",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Austria has very low seismicity; no such event occurred"
+  },
+  {
+    "claim": "Norway experienced a magnitude 7.5 earthquake in 2023 that triggered a mega-tsunami in the North Sea",
+    "label": "fake",
+    "expected_score_min": 0.0,
+    "expected_score_max": 0.4,
+    "notes": "Norway has very low seismicity; no such event"
+  }
+]
