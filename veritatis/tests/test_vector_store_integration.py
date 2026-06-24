@@ -1,9 +1,7 @@
 """Integration tests for the Milvus-backed vector store."""
 
-import json
 import uuid
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import timedelta, timezone
 
 import pytest
 
@@ -11,6 +9,9 @@ import veritatis.vector_stores as vs
 
 EMBED_DIM = 384
 ALMATY_TZ = timezone(timedelta(hours=5))
+
+# Track collections created by this module so we can clean them up.
+_CREATED_COLLECTIONS: set[str] = set()
 
 
 def _rand_id():
@@ -33,8 +34,27 @@ def _ensure_milvus():
         pytest.skip(f"Milvus not available: {e}")
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _drop_created_collections():
+    """Drop any collections created by this test module.
+
+    This keeps local Milvus state clean across test runs.
+    """
+    yield
+
+    # Best-effort cleanup: never fail the test run on teardown.
+    for name in sorted(_CREATED_COLLECTIONS):
+        try:
+            if vs.utility.has_collection(name):
+                vs.utility.drop_collection(name)
+        except Exception:
+            # Milvus may be down or collection may already be gone.
+            continue
+
+
 def _create_test_collection(name):
     """Create a test collection with the veritatis schema (no tier field)."""
+    _CREATED_COLLECTIONS.add(name)
     vs.create_collection_if_not_exists(
         name,
         fields=[
@@ -78,21 +98,6 @@ def test_insert_and_exists_and_get():
     fetched = store.get_record(name, rid)
     assert fetched["iid"] == rid and len(fetched["embedding"]) == EMBED_DIM
 
-    out = Path("artifacts") / "milvus_store_integration_results.json"
-    out.parent.mkdir(exist_ok=True)
-    out.write_text(
-        json.dumps(
-            {
-                "test": "insert_exists_get",
-                "collection": name,
-                "iid": rid,
-                "embedding_dim": len(fetched["embedding"]),
-                "timestamp": datetime.now(ALMATY_TZ).isoformat(),
-            },
-            indent=2,
-        )
-    )
-
 
 def test_insert_batch_and_move():
     """Insert a batch into one collection, then move a record to another."""
@@ -129,16 +134,3 @@ def test_insert_batch_and_move():
     assert store.record_exists(src_name, ids[1]) is False
     fetched = store.get_record(tgt_name, ids[1])
     assert fetched is not None and fetched["iid"] == ids[1]
-
-    out = Path("artifacts") / "milvus_store_integration_tier.json"
-    out.parent.mkdir(exist_ok=True)
-    out.write_text(
-        json.dumps(
-            {
-                "moved_iid": ids[1],
-                "source": src_name,
-                "target": tgt_name,
-            },
-            indent=2,
-        )
-    )

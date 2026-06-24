@@ -41,10 +41,11 @@ search_manager = SearchManager(db, searcher)
 stats = search_manager.search_and_save(
     keywords=["earthquake", "землетрясение"],
     max_results=5,
-    skip_existing=True
+    skip_existing=True,
+    exclude_urls=["instagram.com", "facebook.com"]
 )
 
-print(f"New: {stats['new']}, Skipped: {stats['skipped']}")
+print(f"New: {stats['new']}, Skipped: {stats['skipped']}, Excluded: {stats['excluded']}")
 ```
 
 ## API Reference
@@ -65,9 +66,17 @@ search_manager.search_and_save(
     keywords: List[str],
     max_results: int = 5,
     site_filter: Optional[str] = None,
-    skip_existing: bool = True
+    skip_existing: bool = True,
+    exclude_urls: Optional[List[str]] = None
 ) -> dict
 ```
+
+**Args:**
+- `keywords`: List of search keywords.
+- `max_results`: Number of new results to save per keyword.
+- `site_filter`: Optional site filter (e.g., `'instagram.com'`).
+- `skip_existing`: Skip URLs that already exist in database.
+- `exclude_urls`: List of domains to exclude (e.g., `['instagram.com', 'wikipedia']`). Matches partial domain names, so `'wikipedia'` excludes both `en.wikipedia.org` and `ru.wikipedia.org`.
 
 **Returns:**
 ```python
@@ -75,7 +84,8 @@ search_manager.search_and_save(
     'searched': int,
     'found': int,
     'new': int,
-    'skipped': int
+    'skipped': int,
+    'excluded': int
 }
 ```
 
@@ -96,14 +106,9 @@ search_manager.mark_as_downloaded(
 ) -> bool
 ```
 
-Вот документация в том же стиле для метода `download_html()`:
-
----
-
 ### `download_html()`
 
 Download HTML content for pending URLs and upload to Supabase storage.
-
 ```python
 search_manager.download_html(storage, fetch_with="selenium", limit=50) -> dict
 ```
@@ -148,7 +153,8 @@ search_manager.search_with_keywords_file(
     keywords_file: str,
     max_results: int = 5,
     site_filter: Optional[str] = None,
-    skip_existing: bool = True
+    skip_existing: bool = True,
+    exclude_urls: Optional[List[str]] = None
 ) -> dict
 ```
 
@@ -163,6 +169,9 @@ pending → downloaded
 
 ✅ **Deduplication**
 Avoids duplicate URLs using `skip_existing`.
+
+✅ **Domain Filtering**
+Exclude unwanted domains with `exclude_urls`.
 
 ✅ **Status Tracking**
 Each result moves through a clear pipeline.

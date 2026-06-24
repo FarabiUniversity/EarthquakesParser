@@ -3,25 +3,21 @@ name = "veritatis"
 version = "0.1.0"
 requires-python = ">=3.11,<3.13"
 dependencies = [
-	"fastapi==0.128.0",
-	"requests==2.32.3",
-	"supabase==2.18.1",
-	"postgrest==1.1.1",
-	"uvicorn==0.39.0",
-	"pymilvus==2.6.3",
-	"python-dotenv==1.2.1",
-	"sentence-transformers==2.2.2",
-	"huggingface_hub==0.13.4",
-	"pytest==8.3.3",
-	"langgraph>=0.2.55",
-	"langchain-openai>=0.1.0",
-	"langchain-core>=0.2.0",
+        "fastapi==0.128.0",
+        "requests==2.32.3",
+        "supabase==2.18.1",
+        "postgrest==1.1.1",
+        "uvicorn==0.39.0",
+        "pymilvus==2.6.3",
+        "python-dotenv==1.2.1",
+        "sentence-transformers==2.2.2",
+        "huggingface_hub==0.13.4",
+        "pytest>=9.0.0,<10",
 ]
 
 [project.optional-dependencies]
-# Optional Supabase client dependencies for integrations that need them.
 supabase = [
-	"supabase",
+        "supabase",
 ]
 
 [tool.poetry]
@@ -42,17 +38,14 @@ dotenv = "^0.9.9"
 pymilvus = "^2.6.3"
 uvicorn = "^0.39.0"
 sentence-transformers = "^2.2.2"
-pytest = "^9.0.1"
-langgraph = ">=0.2.55"
-langchain-openai = ">=0.1.0"
-langchain-core = ">=0.2.0"
+pytest = "^9.0.0"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = [
-	"ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
-	"ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
-	"ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+        "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
+        "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
+        "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
 ]
 
 
