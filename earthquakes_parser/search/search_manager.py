@@ -4,7 +4,7 @@ from typing import List, Literal, Optional
 from urllib.parse import urlparse
 
 from earthquakes_parser import SupabaseFileStorage
-from earthquakes_parser.search.base_searcher import BaseSearcher
+from earthquakes_parser.search.backends.base_searcher import BaseSearcher
 from earthquakes_parser.search.html_downloader import HTMLDownloader
 from earthquakes_parser.storage.supabase import SupabaseDB
 

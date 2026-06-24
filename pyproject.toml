@@ -6,7 +6,7 @@ authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 keywords = ["earthquake", "parser", "web-scraping", "nlp"]
 classifiers = [
@@ -30,14 +30,12 @@ dependencies = [
     "trafilatura>=1.6.0",
     "transformers>=4.30.0",
     "torch>=2.0.0",
-    "python-dotenv>=1.1.1",
+    "python-dotenv>=1.2.1",
     "supabase>=2.22.1",
     "selenium>=4.32.0",
     "fastapi>=0.123.10",
     "matplotlib>=3.9.4",
-    "structlog==25.4.0",
-    "jinja2>=3.1.6",
-    "apache-airflow[celery]==2.10.4",
+    "google-genai>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -46,6 +44,9 @@ supabase = [
 ]
 s3 = [
     "boto3>=1.28.0",
+]
+monitoring = [
+    "rich>=13.0.0",
 ]
 dev = [
     "pytest>=7.4.0",
