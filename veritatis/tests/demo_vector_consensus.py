@@ -266,8 +266,7 @@ def main():
         print("=" * 80)
 
         print("\n📚 Для использования в вашем коде:")
-        print(
-            """
+        print("""
 from veritatis.vector_consensus import find_most_relevant_vector
 
 # Найти лучший вектор из Tier 1
@@ -278,8 +277,7 @@ best, all_ranked = find_most_relevant_vector(
 )
 
 print(f"Лучший: {best.iid}, score: {best.combined_score:.3f}")
-        """
-        )
+        """)
 
         print("\n📖 Документация: tests/README_VECTOR_CONSENSUS.md")
 

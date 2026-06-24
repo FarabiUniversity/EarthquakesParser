@@ -70,22 +70,28 @@ class FactCheckResult(BaseModel):
 @tool
 def retrieve_tier1(claim: str) -> list[dict]:
     """Search tier1 (raw/unverified sources).
+
     Low weight in scoring — used as indirect confirmation.
     Returns: iid, credibility_score, date, domain, distance.
     """
     results = vector_search(claim, top_k=10, tier=1)
-    logger.info("retrieve_tier1 returned %d docs for claim: %r", len(results), claim[:60])
+    logger.info(
+        "retrieve_tier1 returned %d docs for claim: %r", len(results), claim[:60]
+    )
     return results
 
 
 @tool
 def retrieve_tier2(claim: str) -> list[dict]:
-    """Search tier2 (credible sources, credibility_score >= 0.7).
-    High weight in scoring — primary evidence.
+    """Search tier2 (credible/verified sources).
+
+    High weight in scoring — used as primary evidence.
     Returns: iid, credibility_score, date, domain, distance.
     """
     results = vector_search(claim, top_k=10, tier=2)
-    logger.info("retrieve_tier2 returned %d docs for claim: %r", len(results), claim[:60])
+    logger.info(
+        "retrieve_tier2 returned %d docs for claim: %r", len(results), claim[:60]
+    )
     return results
 
 
@@ -93,7 +99,8 @@ def retrieve_tier2(claim: str) -> list[dict]:
 # System prompt
 # ---------------------------------------------------------------------------
 
-_SYSTEM_PROMPT = """You are a general-purpose fact-checker. The domain is determined by the data in the database, not limited to any specific topic.
+_SYSTEM_PROMPT = """You are a general-purpose fact-checker. The domain is
+determined by the data in the database, not limited to any specific topic.
 
 You have access to two retrieval tools backed by a vector database:
 

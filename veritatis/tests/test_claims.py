@@ -46,7 +46,7 @@ def require_services(milvus_connection):
 @pytest.mark.integration
 @pytest.mark.parametrize("case", ALL_CASES, ids=_case_id)
 def test_claim_score_in_expected_range(case):
-    """Verify that fact_check() returns a score within [expected_score_min, expected_score_max]."""
+    """Verify fact_check() returns a score within the expected range."""
     from veritatis.agent import fact_check
 
     claim = case["claim"]
@@ -56,9 +56,9 @@ def test_claim_score_in_expected_range(case):
 
     result = fact_check(claim)
 
-    assert 0.0 <= result.score <= 1.0, (
-        f"Score {result.score} out of [0, 1] for claim: {claim!r}"
-    )
+    assert (
+        0.0 <= result.score <= 1.0
+    ), f"Score {result.score} out of [0, 1] for claim: {claim!r}"
     assert score_min <= result.score <= score_max, (
         f"[{label}] score={result.score:.3f} not in [{score_min}, {score_max}]\n"
         f"claim:     {claim!r}\n"

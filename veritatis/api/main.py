@@ -605,7 +605,7 @@ class FactCheckResponse(BaseModel):
 
 @app.post("/fact-check", response_model=FactCheckResponse)
 async def fact_check_endpoint(request: FactCheckRequest):
-    """Run the ReAct fact-checker (Gemma 4) against Tier 1 and Tier 2 Milvus collections.
+    """Run the ReAct fact-checker against Tier 1/Tier 2 Milvus collections.
 
     Accepts a natural-language ``claim``. A LangGraph ReAct agent calls
     ``retrieve_tier1`` and ``retrieve_tier2`` tools, then produces a
@@ -646,7 +646,9 @@ async def fact_check_endpoint(request: FactCheckRequest):
 # Fact-check test-runner endpoint
 # ---------------------------------------------------------------------------
 
-_DATASET_PATH = pathlib.Path(__file__).resolve().parent.parent / "tests" / "claims_dataset.json"
+_DATASET_PATH = (
+    pathlib.Path(__file__).resolve().parent.parent / "tests" / "claims_dataset.json"
+)
 
 
 class RunTestsRequest(BaseModel):
@@ -656,12 +658,16 @@ class RunTestsRequest(BaseModel):
 
 
 class LabelStats(BaseModel):
+    """Per-label aggregate statistics for the test run."""
+
     total: int
     passed: int
     avg_score: float
 
 
 class TestDetail(BaseModel):
+    """Result of a single fact-check test case."""
+
     claim: str
     label: str
     score: float
@@ -669,6 +675,8 @@ class TestDetail(BaseModel):
 
 
 class RunTestsResponse(BaseModel):
+    """Response body for POST /fact-check/run-tests."""
+
     total: int
     passed: int
     failed: int
@@ -681,8 +689,10 @@ class RunTestsResponse(BaseModel):
 async def run_tests(request: RunTestsRequest):
     """Run fact-checker against the built-in test dataset and return accuracy metrics.
 
-    Loads ``tests/claims_dataset.json``, runs each case through ``fact_check()``,
-    and compares the resulting score against ``expected_score_min``/``expected_score_max``.
+    Loads ``tests/claims_dataset.json``,
+     runs each case through ``fact_check()``,
+    and compares the resulting score against
+    ``expected_score_min``/``expected_score_max``.
 
     **Request**
 
@@ -730,7 +740,9 @@ async def run_tests(request: RunTestsRequest):
 
         details.append(TestDetail(claim=claim, label=label, score=score, passed=passed))
 
-        bucket = label_buckets.setdefault(label, {"total": 0, "passed": 0, "scores": []})
+        bucket = label_buckets.setdefault(
+            label, {"total": 0, "passed": 0, "scores": []}
+        )
         bucket["total"] += 1
         bucket["scores"].append(score)
         if passed:
